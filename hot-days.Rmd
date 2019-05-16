@@ -19,7 +19,8 @@ Organize the data.
 library(dplyr)
 df <- df %>%
   mutate(Date = as.Date(as.character(DATE), format = "%Y%m%d")) %>%
-  select(Date, TMAX, TMIN, PRCP, WDF1, WSF1)
+  select(Date, TMAX, TMIN, PRCP, WDF1, WSF1) %>%
+  filter(Date < as.Date("2019-01-01"))
 ```
 
 TMAX: Daily maximum temperature, TMIN: Daily minimum temperature, PRCP: Daily total precipitation, WDF1: Wind direction of fastest one-minute wind, WSF1: Wind speed of fastest one-minute wind
@@ -27,4 +28,5 @@ TMAX: Daily maximum temperature, TMIN: Daily minimum temperature, PRCP: Daily to
 Check for missing values.
 ```{r}
 sum(is.na(df$TMAX))
+df$Date[is.na(df$TMAX)]
 ```
