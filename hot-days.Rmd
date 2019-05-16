@@ -1,0 +1,30 @@
+---
+title: "Hot Days in Tallahassee"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Get the data. Ordered online from https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00093805/detail
+
+Removed second header record and added header names to match columns.
+```{r}
+df <- read.table(file = 'TLH_Daily1970.txt',
+                 na.strings = '-9999',
+                 header = TRUE)
+```
+
+Organize the data.
+```{r}
+library(dplyr)
+df <- df %>%
+  mutate(Date = as.Date(as.character(DATE), format = "%Y%m%d")) %>%
+  select(Date, TMAX, TMIN, PRCP, WDF1, WSF1)
+```
+
+TMAX: Daily maximum temperature, TMIN: Daily minimum temperature, PRCP: Daily total precipitation, WDF1: Wind direction of fastest one-minute wind, WSF1: Wind speed of fastest one-minute wind
+
+Check for missing values.
+```{r}
+sum(is.na(df$TMAX))
+```
