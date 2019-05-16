@@ -1,11 +1,22 @@
 ---
 title: "Hot Days in Tallahassee"
+author: "James Elsner and Svetoslava Elsner"
+date: "5/16/2019"
 output: html_document
 editor_options: 
   chunk_output_type: console
 ---
 
+### Lede: The hots are getting hotter
+
+Here we look at the statistics of extremely hot days in Tallahassee, Florida. An extremely hot day is defined as one in which the maximum temperature exceeds 100$+^\circ$ F.  A record of daily maximum temperatures from the regional airport reveals an increasing trend in the occurrence of such days since the 1970s. The trend results from an increase in the occurrence of hot events and an increase in the average length of an event. We speculate that the trend is related to changes in the intensity and location of the subtropical high pressure system, perhaps exacerbated by changes in land use and global warming.
+
+About the climate in Tallahassee.
+http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
+
 Get the data. Ordered online from https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00093805/detail
+
+Global Historical Climate Network includes daily land surface observations from around the world. The GHCN-Daily was developed to meet the needs of climate analysis and monitoring studies that require data at a sub-monthly time resolution (e.g., assessments of the frequency of heavy rainfall, heat wave duration, etc.). The dataset includes observations from World Meteorological Organization, Cooperative, and CoCoRaHS networks. If observed, the station dataset includes max and minimum temperatures, total precipitation, snowfall, and depth of snow on ground. Some U.S. station data are typically delayed only 24 hours. 
 
 Removed second header record and added header names to match columns.
 ```{r}
@@ -17,16 +28,47 @@ df <- read.table(file = 'TLH_Daily1970.txt',
 Organize the data.
 ```{r}
 library(dplyr)
+library(lubridate)
 df <- df %>%
   mutate(Date = as.Date(as.character(DATE), format = "%Y%m%d")) %>%
-  select(Date, TMAX, TMIN, PRCP, WDF1, WSF1) %>%
+  mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
+  select(Date, Year, Month, Day, TMAX, TMIN, PRCP, WDF1, WSF1) %>%
   filter(Date < as.Date("2019-01-01"))
 ```
 
-TMAX: Daily maximum temperature, TMIN: Daily minimum temperature, PRCP: Daily total precipitation, WDF1: Wind direction of fastest one-minute wind, WSF1: Wind speed of fastest one-minute wind
+* TMAX: Daily maximum temperature, 
+* TMIN: Daily minimum temperature, 
+* PRCP: Daily total precipitation, 
+* WDF1: Wind direction of fastest one-minute wind, 
+* WSF1: Wind speed of fastest one-minute wind
 
-Check for missing values.
+Check for missing values in maximum and minimum temperature
 ```{r}
 sum(is.na(df$TMAX))
 df$Date[is.na(df$TMAX)]
+df$Date[is.na(df$TMIN)]
+```
+
+Add temperatures for July 8, 2005 from Weather Underground.
+```{r}
+df$TMAX[df$Date == "2005-07-08"] <- 96
+df$TMIN[df$Date == "2005-07-08"] <- 71
+```
+
+Line plot of the average annual daily high temperature.
+```{r}
+library(ggplot2)
+
+df %>% 
+  group_by(Year) %>%
+  summarize(N100 = sum(TMAX >= 100, na.rm = TRUE),
+            N99 = sum(TMAX >= 99, na.rm = TRUE),
+            avgTmax = mean(TMAX, na.rm = TRUE)) %>%
+ggplot(aes(x = Year, y = avgTmax)) +
+  geom_point(size = 3) +
+  geom_line() +
+  ylab("Temperature (F)") +
+  ggtitle(label = "Annual Average Daily High Temperature",
+          subtitle = "Tallahassee, Florida, USA") +
+  theme_bw()
 ```
