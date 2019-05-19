@@ -14,6 +14,44 @@ Here we look at the statistics of extremely hot days in Tallahassee, Florida. An
 About the climate in Tallahassee.
 http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
 
+Need a map with inset. See file:///Users/jameselsner/Desktop/ClassNotes/appl-spat-stat/09-Lesson.html
+```{r}
+library(tmap)
+library(spData)
+
+FL1.sf <- us_states %>%
+  filter(NAME == "Florida")
+
+( inset.tm <- tm_shape(world) +
+  tm_polygons() +
+tm_shape(world[world$name_long == "United States", ]) +
+  tm_polygons(col = "gray") +
+tm_shape(us_states, projection = "laea_NA", is.master = TRUE) + 
+  tm_borders() +
+  tm_compass(type = "arrow", position = c("left", "bottom")) +
+  tm_scale_bar(position = c("left", "bottom"), size = .75) +
+  tm_style("natural") +
+tm_shape(FL1.sf) +
+  tm_polygons(col = "white") )
+
+library(USAboundaries)
+
+FL.sf <- us_states(states = "Florida")
+ALGA.sf <- us_states(states = c("Alabama", "Georgia"))
+
+( main.tm <- tm_shape(FL.sf, projection = "laea_NA") +
+  tm_polygons(col = "white") +
+    tm_shape(ALGA.sf) +
+    tm_polygons(col = "gray") +
+    tm_compass(type = "arrow", position = c("right", "top")) +
+    tm_scale_bar(position = c("right", "top"), size = .75) +
+     tm_style("natural") )
+
+library(grid)
+main.tm
+print(inset.tm, vp = viewport(.3, .3, width = .7, height = .4))
+```
+
 Get the data. 
 
 Ordered online from 
@@ -71,9 +109,9 @@ https://cedricscherer.netlify.com/2019/05/17/the-evolution-of-a-ggplot-ep.-1/
 library(ggplot2)
 
 df %>% 
-#  filter(Month %in% 5:8) %>%
+  filter(TMAX >= 100) %>%
   group_by(Year) %>%
-  summarize(avgT = mean(TMAX, na.rm = TRUE)) %>%
+#  summarize(avgT = mean(TMIN, na.rm = TRUE)) %>%
 #  summarize(avgP = mean(PRCP, na.rm = TRUE)) %>%
 ggplot(aes(x = Year, y = avgT)) +
   geom_point(size = 3) +
