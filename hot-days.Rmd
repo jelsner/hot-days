@@ -18,7 +18,9 @@ Need a map with inset. See file:///Users/jameselsner/Desktop/ClassNotes/appl-spa
 
 Weather station site location 30.39306°, -84.35333°.
 ```{r}
-TLH_site.df <- data.frame(name = "TLH", lon = -84.35333, lat = 30.39306)
+TLH_site.df <- data.frame(name = "TLH            ", 
+                          lon = -84.35333, 
+                          lat = 30.39306)
 TLH_site.sf <- st_as_sf(TLH_site.df, 
                         coords = c("lon", "lat"))
 st_crs(TLH_site.sf) <- 4326
@@ -45,17 +47,18 @@ tm_shape(FL1.sf) +
 library(USAboundaries)
 
 FL.sf <- us_states(states = "Florida")
+FL.sf$name <- "            Florida"
 ALGA.sf <- us_states(states = c("Alabama", "Georgia"))
 
 ( main.tm <- 
     tm_shape(FL.sf, projection = "laea_NA") +
        tm_polygons(col = "white") +
-       tm_text("name", size = 2) +
+       tm_text(text = "name", size = 2) +
     tm_shape(ALGA.sf) +
        tm_polygons(col = "gray") +
     tm_shape(TLH_site.sf) +
        tm_symbols(shape = 21) +
-#       tm_text(label = "TLH") + 
+       tm_text(text = "name") + 
     tm_compass(type = "arrow", position = c("right", "top")) +
     tm_scale_bar(position = c("right", "top"), size = .75) +
     tm_style("natural") )
