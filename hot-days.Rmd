@@ -125,9 +125,9 @@ https://cedricscherer.netlify.com/2019/05/17/the-evolution-of-a-ggplot-ep.-1/
 library(ggplot2)
 
 df %>% 
-  filter(TMAX >= 100) %>%
+#  filter(TMAX >= 80) %>%
   group_by(Year) %>%
-#  summarize(avgT = mean(TMIN, na.rm = TRUE)) %>%
+  summarize(avgT = mean(TMAX, na.rm = TRUE)) %>%
 #  summarize(avgP = mean(PRCP, na.rm = TRUE)) %>%
 ggplot(aes(x = Year, y = avgT)) +
   geom_point(size = 3) +
@@ -162,7 +162,11 @@ ggplot(aes(x = Year, y = N100, fill = N100)) +
 Last hot days?
 ```{r}
 df %>% 
-  filter(TMAX >= 100) %>%
+  filter(TMAX >= 100 & Month == 5) %>%
   arrange(desc(Date)) %>%
+  head(n = 20)
+
+df %>%
+  arrange(desc(TMAX)) %>%
   head()
 ```
