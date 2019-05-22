@@ -20,6 +20,11 @@ http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
 
 Need a map with inset. See file:///Users/jameselsner/Desktop/ClassNotes/appl-spat-stat/09-Lesson.html
 
+```{r}
+library(dplyr)
+library(lubridate)
+```
+
 Weather station site location 30.39306°, -84.35333°.
 ```{r}
 TLH_site.df <- data.frame(name = "TLH            ", 
@@ -92,10 +97,6 @@ Global Historical Climate Network includes daily land surface observations from 
 
 Removed second header record and added header names to match columns.
 ```{r}
-df <- read.table(file = 'TLH_Daily1970.txt',
-                 na.strings = '-9999',
-                 header = TRUE)
-
 df <- read.csv(file = 'TLH_SOD1892.csv',
                stringsAsFactors = FALSE,
                header = TRUE) %>%
@@ -104,7 +105,7 @@ df <- read.csv(file = 'TLH_SOD1892.csv',
       select(STATION, Date, TMAX, TMIN, PRCP)
 ```
 
-Take care of duplicates.
+Analysis of temperatures when data are available at both sites.
 ```{r}
 duplicateRows <- duplicated(df$Date)
 duplicateDates <- df$Date[duplicateRows]
@@ -119,24 +120,32 @@ df2 <- df %>%
   select(STATION2 = STATION, TMAX2 = TMAX, TMIN2 = TMIN, PRCP2 = PRCP)
 
 dfOverlap <- cbind(df1, df2)
-
-length(is.na(dfOverlap$TMAX2))
-
 ```
 
-
-
-Organize the data.
 ```{r}
-library(dplyr)
-library(lubridate)
-df <- df %>%
-  mutate(Date = as.Date(as.character(DATE), format = "%Y%m%d")) %>%
-  mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
-#  mutate(TAVG2 = (TMAX + TMIN)/2) %>%
-#  select(Date, Year, Month, Day, TMAX, TMIN, PRCP, WDF1, WSF1) %>%
-  select(Date, Year, Month, Day, TMAX, TMIN, TAVG, PRCP) %>%
-  filter(Date < as.Date("2019-01-01"))
+dfOverlap <- dfOverlap %>%
+  mutate(OLDwarmer = TMAX - TMAX2 > 0,
+         OLDcolder = TMAX - TMAX2 < 0)
+
+sum(dfOverlap$OLDwarmer[dfOverlap$TMIN >= 78], na.rm = TRUE)
+sum(dfOverlap$OLDcolder[dfOverlap$TMIN >= 78], na.rm = TRUE)
+
+mean(dfOverlap$TMAX, na.rm = TRUE)
+mean(dfOverlap$TMAX2, na.rm = TRUE)
+mean(dfOverlap$TMIN, na.rm = TRUE)
+mean(dfOverlap$TMIN2, na.rm = TRUE)
+```
+
+Read only the data from the current site.
+```{r}
+df <- read.csv(file = 'TLH_SOD1892.csv',
+               stringsAsFactors = FALSE,
+               header = TRUE) %>%
+#      filter(STATION == 'USW00093805') %>%
+      filter(STATION == 'USC00088754') %>%
+      mutate(Date = as.Date(DATE)) %>%
+      mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
+      select(Date, Year, Month, Day, TMAX, TMIN, PRCP)
 ```
 
 * TMAX: Daily maximum temperature, 
@@ -164,7 +173,7 @@ https://cedricscherer.netlify.com/2019/05/17/the-evolution-of-a-ggplot-ep.-1/
 library(ggplot2)
 
 df %>% 
-#  filter(TMAX >= 80) %>%
+  filter(Year >= 1941, TMAX >= 93) %>%
   group_by(Year) %>%
   summarize(avgT = mean(TMAX, na.rm = TRUE)) %>%
 #  summarize(avgP = mean(PRCP, na.rm = TRUE)) %>%
@@ -173,7 +182,7 @@ ggplot(aes(x = Year, y = avgT)) +
   geom_line() +
   ylab(expression(paste('Temperature (', {}^o, " F)"))) +
   ggtitle(label = "Annual Average Daily High Temperature",
-          subtitle = "Tallahassee, Florida, USA (1970-2018)") +
+          subtitle = "Tallahassee, Florida, USA (1941-2018)") +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) +
   theme_bw()
@@ -183,14 +192,14 @@ Bar plot of the number of 100+ degree days.
 ```{r}
 df %>% 
   group_by(Year) %>%
-  summarize(N100 = sum(TMAX >= 100)) %>%
+  summarize(N100 = sum(TMAX >= 100, na.rm = TRUE)) %>%
 ggplot(aes(x = Year, y = N100, fill = N100)) + 
   geom_bar(stat='identity') + 
   scale_fill_continuous(low = 'orange', high = 'red') +
   geom_text(aes(label = N100), vjust = -.5, size = 3) +
   ylab("Number of Days") +
   ggtitle(label = expression(paste('Number of days at or above 100', {}^o, " F")),
-          subtitle = "Tallahassee, Florida, USA (1970-2018)") +
+          subtitle = "Tallahassee, Florida, USA (1940-2018)") +
   theme_bw() +
   theme(axis.text.x = element_text(size = 11), 
         legend.position = "none") +
