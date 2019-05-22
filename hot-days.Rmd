@@ -9,7 +9,11 @@ editor_options:
 
 ### Lede: The hots are getting hotter
 
-Here we look at the statistics of extremely hot days in Tallahassee, Florida. An extremely hot day is defined as one in which the maximum temperature exceeds 100$+^\circ$ F.  A record of daily maximum temperatures from the regional airport reveals an increasing trend in the occurrence of such days since the 1970s. The trend results from an increase in the occurrence of hot events and an increase in the average length of an event. We speculate that the trend is related to changes in the intensity and location of the subtropical high pressure system, perhaps exacerbated by changes in land use and global warming.
+Here we look at the statistics of extremely hot days in Tallahassee, Florida. An extremely hot day is defined as one in which the maximum temperature exceeds 100$+^\circ$ F.  A record of daily maximum temperatures from the regional airport reveals an increasing trend in the occurrence of such days since the 1970s. The trend results from an increase in the occurrence of hot events and an increase in the average length of an event. We speculate that the trend is related to changes in the intensity and location of deep layer ridging, perhaps exacerbated by changes in land use and global warming.
+
+Deep layer ridging
+
+loss of daytime heating
 
 About the climate in Tallahassee.
 http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
@@ -72,6 +76,12 @@ Get the data.
 
 Ordered online from 
 https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00093805/detail
+
+TALLAHASSEE REGIONAL AIRPORT, FL US (Station ID: GHCND:USW00093805)
+
+Older data from
+TALLAHASSEE, FL US (Station ID: GHCND:USC00088754)
+
 
 Do the same for Sofia Bulgaria
 https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:BUM00015614/detail
@@ -169,4 +179,66 @@ df %>%
 df %>%
   arrange(desc(TMAX)) %>%
   head()
+```
+
+Hot days since 2009.
+```{r}
+hotDates <- df %>%
+  filter(Year >= 2009 & TMAX >= 100) %>%
+  select(Date) %>%
+  pull()
+```
+
+Hourly data.
+```{r}
+dfH <- read.csv(file = "TLH_Hourly2009.csv", 
+                header = TRUE,
+                stringsAsFactors = FALSE)
+str(dfH)
+```
+
+Report type: https://www1.ncdc.noaa.gov/pub/data/ish/ish-format-document.pdf
+
+FM-12 = SYNOP Report of surface observation form a fixed land station
+FM-15 = METAR Aviation routine weather report
+FM-16 = SPECI Aviation selected special weather report
+
+Convert the date/time character string to a data/time obect.
+```{r}
+library(lubridate)
+
+dfH2 <- dfH %>%
+  mutate(DateTime = ymd_hms(DATE, tz = "EST"),
+         Date = as.Date(DateTime, tz = "EST"),
+         TempF = as.integer(HourlyDryBulbTemperature),
+         ReportType = REPORT_TYPE) %>%
+  select(ReportType, DateTime, Date, TempF) %>%
+  filter(Date %in% hotDates) %>%
+  filter(ReportType == 'FM-15')
+```
+
+Consecutive hours at or above 100F.
+```{r}
+hotTimes <- rle(dfH2$TempF >= 100)
+consecHours <- hotTimes$lengths[hotTimes$values]
+consecHours <- consecHours[!is.na(consecHours)]
+
+dfH2 <- dfH2 %>%
+  filter(TempF >= 100) %>%
+  mutate(dateNo = rep(1:length(consecHours), consecHours))
+```
+
+Join the daily data with the hourly data.
+```{r}
+df2 <- df %>%
+  select(Date, TMAX) %>%
+  filter(TMAX >= 100)
+
+dfH2 <- left_join(dfH2, df2)
+```
+
+Round the times to nearest hour.
+```{r}
+dfH2 <- dfH2 %>%
+  mutate(Hour =  hour(round(DateTime, "hours")))
 ```
