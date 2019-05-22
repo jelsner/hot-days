@@ -95,7 +95,36 @@ Removed second header record and added header names to match columns.
 df <- read.table(file = 'TLH_Daily1970.txt',
                  na.strings = '-9999',
                  header = TRUE)
+
+df <- read.csv(file = 'TLH_SOD1892.csv',
+               stringsAsFactors = FALSE,
+               header = TRUE) %>%
+      arrange(factor(STATION, levels = c("USC00088754", "USW00093805"))) %>%
+      mutate(Date = as.Date(DATE)) %>%
+      select(STATION, Date, TMAX, TMIN, PRCP)
 ```
+
+Take care of duplicates.
+```{r}
+duplicateRows <- duplicated(df$Date)
+duplicateDates <- df$Date[duplicateRows]
+
+df1 <- df %>%
+  filter(Date %in% duplicateDates) %>%
+  filter(STATION == "USC00088754")
+
+df2 <- df %>%
+  filter(Date %in% duplicateDates) %>%
+  filter(STATION == "USW00093805") %>%
+  select(STATION2 = STATION, TMAX2 = TMAX, TMIN2 = TMIN, PRCP2 = PRCP)
+
+dfOverlap <- cbind(df1, df2)
+
+length(is.na(dfOverlap$TMAX2))
+
+```
+
+
 
 Organize the data.
 ```{r}
