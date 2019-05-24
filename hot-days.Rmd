@@ -108,7 +108,7 @@ df <- read.csv(file = 'TLH_SOD1892.csv',
       select(STATION, Date, TMAX, TMIN, PRCP)
 ```
 
-Analysis of temperatures when data are available at both sites.
+### Analysis of temperatures when data are available at both sites.
 ```{r}
 duplicateRows <- duplicated(df$Date)
 duplicateDates <- df$Date[duplicateRows]
@@ -146,26 +146,7 @@ mean(dfOverlap$TMAX[dfOverlap$TMAX >= 100], na.rm = TRUE)
 mean(dfOverlap$TMAX2[dfOverlap$TMAX >= 100], na.rm = TRUE)
 
 ```
-The overall max temperature averages are nearly the same. 
-
-https://journals.ametsoc.org/doi/full/10.1175/MWR3284.1
-P(TMAX2 >= 100 | TMAX) = P(TMAX | TMAX2 >= 100) * P(TMAX)
-
-Logistic regression model.
-```{r}
-head(dfOverlap)
-dfModel <- dfOverlap %>%
-  mutate(Month = month(Date)) %>%
-  filter(Month %in% 5:9) 
-
-model1 <- glm(I(TMAX2 >= 98) ~ TMAX, 
-              data = dfModel,
-              family = "binomial")
-
-predict(model1, 
-        newdata = data.frame(TMAX = 100:101), 
-        type = "response")
-```
+The overall daily high temperature means are nearly identical. For hot days the difference in average highs is in favor of downtown.
 
 Cumulative logistic regression model.
 ```{r}
@@ -209,7 +190,7 @@ summary(fit1)
 library(tidybayes)
 library(modelr)
 
-
+# initialize out data frame
 out <- dfModel2 %>%
   data_grid(TMAX = 96:106) %>%
   add_predicted_draws(fit1, n = 1000) %>%
@@ -218,6 +199,7 @@ out <- dfModel2 %>%
   summarize(nTMAX = n(),
             prob100 = sum(pTMAX2 >= 100)/nTMAX) 
 
+# rbind to the initialized data frame
 for(i in 2:20){
   out <- dfModel2 %>%
   data_grid(TMAX = 96:106) %>%
@@ -232,8 +214,12 @@ for(i in 2:20){
 out$I <- rep(1:20, each = 11)
 
 ggplot(out, aes(x = TMAX, y = prob100, group = I)) +
-  geom_line() +
-  geom_point()
+#  geom_line() +
+  geom_point() +
+  geom_halfeyeh() +
+  xlab("Daily Maximum Temperature Downtown Tallahassee (F)") +
+  ylab("Probability of 100 F Daily Maximum at the Airport") 
+
   
 ```
 
