@@ -11,6 +11,9 @@ editor_options:
 
 Here we look at the statistics of extremely hot days in Tallahassee, Florida. An extremely hot day is defined as one in which the maximum temperature exceeds 100$+^\circ$ F.  A record of daily maximum temperatures from the regional airport reveals an increasing trend in the occurrence of such days since the 1970s. The trend results from an increase in the occurrence of hot events and an increase in the average length of an event. We speculate that the trend is related to changes in the intensity and location of deep layer ridging, perhaps exacerbated by changes in land use and global warming.
 
+The combination of heat and humidity is expected to reach excessive, unhealthy levels. In particular, this event is early in the season when people are less acclimated to the heat, and this is expected to be a long duration event. These factors tend to exacerbate any heat related illness. The most vulnerable populations include the elderly, homeless, and those with medical conditions, especially
+where there is a lack of air conditioning. With the holiday weekend, outdoor event goers will also have an increased risk for heat related illness. There is also a larger than normal population without air conditioning in areas recovering from Hurricane Michael.
+
 Deep layer ridging
 
 loss of daytime heating
@@ -132,8 +135,106 @@ sum(dfOverlap$OLDcolder[dfOverlap$TMIN >= 78], na.rm = TRUE)
 
 mean(dfOverlap$TMAX, na.rm = TRUE)
 mean(dfOverlap$TMAX2, na.rm = TRUE)
+
 mean(dfOverlap$TMIN, na.rm = TRUE)
 mean(dfOverlap$TMIN2, na.rm = TRUE)
+
+mean(dfOverlap$TMAX[dfOverlap$TMAX >= 95], na.rm = TRUE)
+mean(dfOverlap$TMAX2[dfOverlap$TMAX >= 95], na.rm = TRUE)
+
+mean(dfOverlap$TMAX[dfOverlap$TMAX >= 100], na.rm = TRUE)
+mean(dfOverlap$TMAX2[dfOverlap$TMAX >= 100], na.rm = TRUE)
+
+```
+The overall max temperature averages are nearly the same. 
+
+https://journals.ametsoc.org/doi/full/10.1175/MWR3284.1
+P(TMAX2 >= 100 | TMAX) = P(TMAX | TMAX2 >= 100) * P(TMAX)
+
+Logistic regression model.
+```{r}
+head(dfOverlap)
+dfModel <- dfOverlap %>%
+  mutate(Month = month(Date)) %>%
+  filter(Month %in% 5:9) 
+
+model1 <- glm(I(TMAX2 >= 98) ~ TMAX, 
+              data = dfModel,
+              family = "binomial")
+
+predict(model1, 
+        newdata = data.frame(TMAX = 100:101), 
+        type = "response")
+```
+
+Cumulative logistic regression model.
+```{r}
+library(brms)
+
+minTMAX2 <- min(dfModel2$TMAX2)
+
+dfModel2 <- dfModel %>%
+  filter(TMAX >= 94) %>%
+  mutate(TI = TMAX2 - minTMAX2 + 1,
+         TDT = scale(TMAX))
+
+family <- brms::cumulative(threshold = "equidistant")
+formula <- TI ~ 1
+
+get_prior(formula, data = dfModel2, family = family)
+
+fit0 <- brm(formula = formula,
+           data = dfModel2,
+           family = family,
+           prior = set_prior("student_t(3, 0, 10)", class = "Intercept"),
+           seed = 9121)
+fixef(fit0)
+
+fit0_out <- predict(fit0, probs = c(0, 1))
+head(fit0_out)
+
+formula <- TI ~ TMAX
+
+get_prior(formula, data = dfModel2, family = family)
+
+fit1 <- brm(formula = formula,
+            data = dfModel2,
+            family = family,
+            prior = c(set_prior("normal(0, 1)", class = "b"),
+                     set_prior("student_t(3, 0, 10)", class = "Intercept")),
+           seed = 78121)
+
+summary(fit1)
+
+library(tidybayes)
+library(modelr)
+
+
+out <- dfModel2 %>%
+  data_grid(TMAX = 96:106) %>%
+  add_predicted_draws(fit1, n = 1000) %>%
+  mutate(pTMAX2 = as.integer(.prediction)  + minTMAX2 - 1) %>%
+  group_by(TMAX) %>%
+  summarize(nTMAX = n(),
+            prob100 = sum(pTMAX2 >= 100)/nTMAX) 
+
+for(i in 2:20){
+  out <- dfModel2 %>%
+  data_grid(TMAX = 96:106) %>%
+  add_predicted_draws(fit1, n = 1000) %>%
+  mutate(pTMAX2 = as.integer(.prediction)  + minTMAX2 - 1) %>%
+  group_by(TMAX) %>%
+  summarize(nTMAX = n(),
+            prob100 = sum(pTMAX2 >= 100)/nTMAX) %>%
+    rbind(out)
+}
+
+out$I <- rep(1:20, each = 11)
+
+ggplot(out, aes(x = TMAX, y = prob100, group = I)) +
+  geom_line() +
+  geom_point()
+  
 ```
 
 Read only the data from the current site.
