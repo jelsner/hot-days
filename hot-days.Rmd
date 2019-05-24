@@ -148,6 +148,8 @@ mean(dfOverlap$TMAX2[dfOverlap$TMAX >= 100], na.rm = TRUE)
 ```
 The overall daily high temperature means are nearly identical. For hot days the difference in average highs is in favor of downtown.
 
+Daily temperatures in Tallahassee were recorded from a station downtown until the early 1940s. Since then at the airport. Avg difference in highs during the overlap period is small (less than 1/2°F). But it is much more likely to get to 100°F+ downtown. 
+
 Cumulative logistic regression model.
 ```{r}
 library(brms)
@@ -182,7 +184,7 @@ fit1 <- brm(formula = formula,
             data = dfModel2,
             family = family,
             prior = c(set_prior("normal(0, 1)", class = "b"),
-                     set_prior("student_t(3, 0, 10)", class = "Intercept")),
+                     set_prior("student_t(7, 0, 10)", class = "Intercept")),
            seed = 78121)
 
 summary(fit1)
@@ -200,7 +202,7 @@ out <- dfModel2 %>%
             prob100 = sum(pTMAX2 >= 100)/nTMAX) 
 
 # rbind to the initialized data frame
-for(i in 2:20){
+for(i in 2:100){
   out <- dfModel2 %>%
   data_grid(TMAX = 96:106) %>%
   add_predicted_draws(fit1, n = 1000) %>%
@@ -211,16 +213,16 @@ for(i in 2:20){
     rbind(out)
 }
 
-out$I <- rep(1:20, each = 11)
+out$I <- rep(1:100, each = 11)
 
 ggplot(out, aes(x = TMAX, y = prob100, group = I)) +
-#  geom_line() +
-  geom_point() +
-  geom_halfeyeh() +
-  xlab("Daily Maximum Temperature Downtown Tallahassee (F)") +
-  ylab("Probability of 100 F Daily Maximum at the Airport") 
-
-  
+  geom_point(alpha = .2) +
+  scale_x_continuous(breaks = 96:106) +
+  xlab("High Temperature Downtown Tallahassee (°F)") +
+  ylab("Probability") +
+  ggtitle("Chance the TLH Airport Reports a 100°-Degree Day") +
+  theme_minimal() +
+  theme(panel.grid.minor.x = element_blank())
 ```
 
 Read only the data from the current site.
