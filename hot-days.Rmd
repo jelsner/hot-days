@@ -14,9 +14,11 @@ Here we look at the statistics of extremely hot days in Tallahassee, Florida. An
 The combination of heat and humidity is expected to reach excessive, unhealthy levels. In particular, this event is early in the season when people are less acclimated to the heat, and this is expected to be a long duration event. These factors tend to exacerbate any heat related illness. The most vulnerable populations include the elderly, homeless, and those with medical conditions, especially
 where there is a lack of air conditioning. With the holiday weekend, outdoor event goers will also have an increased risk for heat related illness. There is also a larger than normal population without air conditioning in areas recovering from Hurricane Michael.
 
-Deep layer ridging
+The dry air mass will allow for efficient solar heating today. Highs will be in the upper 90s and near 100 away from the immediate coast. A Heat Advisory is in effect today through Monday in the areas hit hardest by Hurricane Michael. Due to deforestation, temps may be a few degrees hotter in these locations.
 
-loss of daytime heating
+Deep layer ridging, loss of daytime heating
+
+Compare with Albany GA
 
 About the climate in Tallahassee.
 http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
@@ -28,7 +30,9 @@ library(dplyr)
 library(lubridate)
 ```
 
-Weather station site location 30.39306°, -84.35333°.
+Airport weather station site location 30.39306°, -84.35333°
+Downtown weather station site location 30.43333°, -84.28333°
+
 ```{r}
 TLH_site.df <- data.frame(name = "TLH            ", 
                           lon = -84.35333, 
@@ -80,16 +84,11 @@ main.tm
 print(inset.tm, vp = viewport(.3, .3, width = .7, height = .4))
 ```
 
-Get the data. 
-
-Ordered online from 
+Get the data. Ordered online from 
 https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00093805/detail
 
 TALLAHASSEE REGIONAL AIRPORT, FL US (Station ID: GHCND:USW00093805)
-
-Older data from
 TALLAHASSEE, FL US (Station ID: GHCND:USC00088754)
-
 
 Do the same for Sofia Bulgaria
 https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:BUM00015614/detail
@@ -98,18 +97,12 @@ https://docs.opendata.aws/noaa-ghcn-pds/readme.html
 
 Global Historical Climate Network includes daily land surface observations from around the world. The GHCN-Daily was developed to meet the needs of climate analysis and monitoring studies that require data at a sub-monthly time resolution (e.g., assessments of the frequency of heavy rainfall, heat wave duration, etc.). The dataset includes observations from World Meteorological Organization, Cooperative, and CoCoRaHS networks. If observed, the station dataset includes max and minimum temperatures, total precipitation, snowfall, and depth of snow on ground. Some U.S. station data are typically delayed only 24 hours. 
 
-Removed second header record and added header names to match columns.
+### Analysis of temperatures when data are available at both sites.
 ```{r}
 df <- read.csv(file = 'TLH_SOD1892.csv',
                stringsAsFactors = FALSE,
-               header = TRUE) %>%
-      arrange(factor(STATION, levels = c("USC00088754", "USW00093805"))) %>%
-      mutate(Date = as.Date(DATE)) %>%
-      select(STATION, Date, TMAX, TMIN, PRCP)
-```
+               header = TRUE) 
 
-### Analysis of temperatures when data are available at both sites.
-```{r}
 duplicateRows <- duplicated(df$Date)
 duplicateDates <- df$Date[duplicateRows]
 
@@ -150,7 +143,7 @@ The overall daily high temperature means are nearly identical. For hot days the 
 
 Daily temperatures in Tallahassee were recorded from a station downtown until the early 1940s. Since then at the airport. Avg difference in highs during the overlap period is small (less than 1/2°F). But it is much more likely to get to 100°F+ downtown. 
 
-Cumulative logistic regression model.
+Cumulative logistic regression model. Note: The model cannot predict temperatures above 100 at the airport since there were none in the record during the overlapping years. It can assign an exceedance probability for a larger range of input temperatures.
 ```{r}
 library(brms)
 
@@ -201,6 +194,8 @@ out <- dfModel2 %>%
   summarize(nTMAX = n(),
             prob100 = sum(pTMAX2 >= 100)/nTMAX) 
 
+out
+
 # rbind to the initialized data frame
 for(i in 2:100){
   out <- dfModel2 %>%
@@ -215,28 +210,120 @@ for(i in 2:100){
 
 out$I <- rep(1:100, each = 11)
 
+library(ggridges)
+
 ggplot(out, aes(x = TMAX, y = prob100, group = I)) +
-  geom_point(alpha = .2) +
+  geom_point(alpha = .2, size = .5) +
   scale_x_continuous(breaks = 96:106) +
   xlab("High Temperature Downtown Tallahassee (°F)") +
-  ylab("Probability") +
-  ggtitle("Chance the TLH Airport Reports a 100°-Degree Day") +
+  ylab("Posterior Probability") +
+  ggtitle("Chance the TLH Airport Reports a 100+°F Day",
+          subtitle = "Given specific high temperatures downtown") +
   theme_minimal() +
   theme(panel.grid.minor.x = element_blank())
 ```
 
-Read only the data from the current site.
+Read only the data from the downtown site. Filter by days at or above 96F then use the model to predict the temperature at the airport. August 31, 1895 TMAX = 2768 is removed.
 ```{r}
-df <- read.csv(file = 'TLH_SOD1892.csv',
+DTN.df <- read.csv(file = 'TLH_SOD1892.csv',
                stringsAsFactors = FALSE,
                header = TRUE) %>%
-#      filter(STATION == 'USW00093805') %>%
       filter(STATION == 'USC00088754') %>%
+      filter(TMAX >= 96) %>%
+      filter(TMAX != 2768) %>%
+      mutate(Date = as.Date(DATE)) %>%
+      mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
+      select(Date, Year, Month, Day, TMAX, TMIN, PRCP) 
+table(DTN.df$TMAX)
+```
+
+Predictions. What is the likely number of 100 degree days at the airport over the period of record when the daily high temperature was recorded downtown?
+```{r}
+n100 <- numeric()
+for(i in 1:100){
+TMAX2 <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
+                    fit1, n = 1000) %>%
+  mutate(TMAX2est = as.integer(.prediction) + minTMAX2 - 1) %>%
+  group_by(Date) %>%
+  sample_n(size = 1) %>%
+  pull(TMAX2est) 
+n100 <- c(n100, sum(TMAX2 >= 100))
+}
+```
+
+Predictions. No loop. Look at a single realization. Join predictions data frame with the original downtown data frame.
+```{r}
+TMAX2.df <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
+                    fit1, n = 1000) %>%
+  mutate(TMAX2est = as.integer(.prediction) + minTMAX2 - 1) %>%
+  group_by(Date) %>%
+  sample_n(size = 2) %>%
+  select(Date, TMAX2est)
+
+x <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
+                    fit1, n = 1000) %>%
+  mutate(TMAX2est = as.integer(.prediction) + minTMAX2 - 1) %>%
+  group_by(Date) %>%
+  sample_n(size = 3) %>%
+  pull(TMAX2est)
+
+z <- data.frame(matrix(x, ncol = 3, byrow = FALSE))
+names(z) <- c("Corrected 1", "Corrected 2", "Corrected 3")
+z$Date <- DTN.df$Date
+
+YearCount.df <- read.csv(file = 'TLH_SOD1892.csv',
+               stringsAsFactors = FALSE,
+               header = TRUE) %>%
+      filter(STATION == 'USC00088754') %>%
+      mutate(Date = as.Date(DATE)) %>%
+      mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
+      select(Date, Year, Month, Day, TMAX, TMIN, PRCP) %>%
+left_join(x, by = "Date") %>%
+  filter(Date < as.Date("1940-03-01")) %>%
+  group_by(Year) %>%
+  
+# Needs work
+  summarize(Corrected = sum(TMAX2est >= 100, na.rm = TRUE),
+            Uncorrected = sum(TMAX >= 100, na.rm = TRUE))
+  
+```
+
+Read only the data from the airport site.
+```{r}
+TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
+               stringsAsFactors = FALSE,
+               header = TRUE) %>%
+      filter(STATION == 'USW00093805') %>%
       mutate(Date = as.Date(DATE)) %>%
       mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
       select(Date, Year, Month, Day, TMAX, TMIN, PRCP)
 ```
 
+```{r}
+YearCount2.df <- TLH.df %>%
+  group_by(Year) %>%
+  summarize(Corrected = sum(TMAX >= 100, na.rm = TRUE),
+            Uncorrected = Corrected)
+
+library(reshape2)
+YC.df <- rbind(YearCount.df, YearCount2.df) %>%
+  melt(id.vars = "Year")
+
+ggplot(YC.df, aes(x = Year, y = value, fill = value)) + 
+  geom_bar(stat='identity') + 
+  scale_fill_continuous(low = 'orange', high = 'red') +
+  geom_text(aes(label = value), vjust = -.5, size = 3) +
+  ylab("Number of Days") +
+  facet_wrap(~ variable, nrow = 2) +
+  ggtitle(label = expression(paste('Number of days at or above 100', {}^o, " F")),
+          subtitle = "Tallahassee, Florida, USA (1892-2018)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 11), 
+        legend.position = "none") +
+  labs(caption = "Data: Global Historical Climate Network") +
+  theme(plot.caption = element_text(size = 9, color = "grey50"))
+
+```
 * TMAX: Daily maximum temperature, 
 * TMIN: Daily minimum temperature, 
 * PRCP: Daily total precipitation, 
@@ -245,15 +332,15 @@ df <- read.csv(file = 'TLH_SOD1892.csv',
 
 Check for missing values in maximum and minimum temperature
 ```{r}
-sum(is.na(df$TMAX))
-df$Date[is.na(df$TMAX)]
-df$Date[is.na(df$TMIN)]
+sum(is.na(TLH.df$TMAX))
+TLH.df$Date[is.na(TLH.df$TMAX)]
+TLH.df$Date[is.na(TLH.df$TMIN)]
 ```
 
 Add temperatures for July 8, 2005 from Weather Underground.
 ```{r}
-df$TMAX[df$Date == "2005-07-08"] <- 96
-df$TMIN[df$Date == "2005-07-08"] <- 71
+TLH.df$TMAX[TLH.df$Date == "2005-07-08"] <- 96
+TLH.df$TMIN[TLH.df$Date == "2005-07-08"] <- 71
 ```
 
 Line plot of the average annual daily high (low) temperature.
