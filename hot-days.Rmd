@@ -16,6 +16,12 @@ where there is a lack of air conditioning. With the holiday weekend, outdoor eve
 
 The dry air mass will allow for efficient solar heating today. Highs will be in the upper 90s and near 100 away from the immediate coast. A Heat Advisory is in effect today through Monday in the areas hit hardest by Hurricane Michael. Due to deforestation, temps may be a few degrees hotter in these locations.
 
+Clearly, weather patterns explain this heat wave. I often cringe when people use a "cold day" to refute climate change. I also point out that "one hot" day or week doesn't necessarily affirm it either. However, there is plenty of evidence that climate change is happening so resist the urge to use one day. The 2018 National Climate Assessment report (and most studies or statements from credible science organizations) released by the Trump Administration highlighted that extreme heat will become a "new normal." For example, the figure below illustrates that the number of nighttime temperatures above 75 degrees F has increased dramatically. This is far more worrisome than daytime temperatures from the standpoint of human health according to scientific and health experts. The report points out:
+
+Sixty-one percent of major Southeast cities are exhibiting some aspects of worsening heat waves, which is a higher percentage than any other region of the country. Hot days and warm nights together impact human comfort and health and result in the need for increased cooling efforts. Agriculture is also impacted by a lack of nighttime cooling.
+
+High daytime temperatures can also be dangerous if strenuous activities are undertaken without proper hydration and acclimatization. 
+
 Deep layer ridging, loss of daytime heating
 
 Compare with Albany GA
@@ -251,15 +257,8 @@ n100 <- c(n100, sum(TMAX2 >= 100))
 }
 ```
 
-Predictions. No loop. Look at a single realization. Join predictions data frame with the original downtown data frame.
+Predictions. No loop. Look at three realizations from the model. Join predictions data frame with the original downtown data frame.
 ```{r}
-TMAX2.df <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
-                    fit1, n = 1000) %>%
-  mutate(TMAX2est = as.integer(.prediction) + minTMAX2 - 1) %>%
-  group_by(Date) %>%
-  sample_n(size = 2) %>%
-  select(Date, TMAX2est)
-
 x <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
                     fit1, n = 1000) %>%
   mutate(TMAX2est = as.integer(.prediction) + minTMAX2 - 1) %>%
@@ -268,7 +267,7 @@ x <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$
   pull(TMAX2est)
 
 z <- data.frame(matrix(x, ncol = 3, byrow = FALSE))
-names(z) <- c("Corrected 1", "Corrected 2", "Corrected 3")
+names(z) <- c("C1", "C2", "C3")
 z$Date <- DTN.df$Date
 
 YearCount.df <- read.csv(file = 'TLH_SOD1892.csv',
@@ -278,14 +277,13 @@ YearCount.df <- read.csv(file = 'TLH_SOD1892.csv',
       mutate(Date = as.Date(DATE)) %>%
       mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
       select(Date, Year, Month, Day, TMAX, TMIN, PRCP) %>%
-left_join(x, by = "Date") %>%
+left_join(z, by = "Date") %>%
   filter(Date < as.Date("1940-03-01")) %>%
   group_by(Year) %>%
-  
-# Needs work
-  summarize(Corrected = sum(TMAX2est >= 100, na.rm = TRUE),
+  summarize(C1 = sum(C1 >= 100, na.rm = TRUE),
+            C2 = sum(C2 >= 100, na.rm = TRUE),
+            C3 = sum(C3 >= 100, na.rm = TRUE),
             Uncorrected = sum(TMAX >= 100, na.rm = TRUE))
-  
 ```
 
 Read only the data from the airport site.
@@ -302,19 +300,26 @@ TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
 ```{r}
 YearCount2.df <- TLH.df %>%
   group_by(Year) %>%
-  summarize(Corrected = sum(TMAX >= 100, na.rm = TRUE),
-            Uncorrected = Corrected)
+  summarize(C1 = sum(TMAX >= 100, na.rm = TRUE),
+            C2 = sum(TMAX >= 100, na.rm = TRUE),
+            C3 = sum(TMAX >= 100, na.rm = TRUE),
+            Uncorrected = C1)
 
 library(reshape2)
 YC.df <- rbind(YearCount.df, YearCount2.df) %>%
-  melt(id.vars = "Year")
+  melt(id.vars = "Year") %>%
+  mutate(variable = factor(variable, 
+                           levels = c("Uncorrected", 
+                                      "C1", "C2", "C3")))
+levels(YC.df$variable) <- c("Raw", "Corrected 1", "Corrected 2", "Corrected 3")
 
 ggplot(YC.df, aes(x = Year, y = value, fill = value)) + 
   geom_bar(stat='identity') + 
   scale_fill_continuous(low = 'orange', high = 'red') +
   geom_text(aes(label = value), vjust = -.5, size = 3) +
+  scale_y_continuous(limits = c(0, 20)) +
   ylab("Number of Days") +
-  facet_wrap(~ variable, nrow = 2) +
+  facet_wrap(~ variable, nrow = 4) +
   ggtitle(label = expression(paste('Number of days at or above 100', {}^o, " F")),
           subtitle = "Tallahassee, Florida, USA (1892-2018)") +
   theme_bw() +
