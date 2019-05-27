@@ -87,6 +87,9 @@ library(grid)
 main.tm
 print(inset.tm, vp = viewport(.3, .3, width = .7, height = .4))
 ```
+###Figure: Location map. Tallahassee.
+
+Improvements: Add Leon County border. Spell out TLH.
 
 Get the data. Ordered online from 
 https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00093805/detail
@@ -99,7 +102,87 @@ https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:BUM00015614/deta
 
 https://docs.opendata.aws/noaa-ghcn-pds/readme.html
 
-Global Historical Climate Network includes daily land surface observations from around the world. The GHCN-Daily was developed to meet the needs of climate analysis and monitoring studies that require data at a sub-monthly time resolution (e.g., assessments of the frequency of heavy rainfall, heat wave duration, etc.). The dataset includes observations from World Meteorological Organization, Cooperative, and CoCoRaHS networks. If observed, the station dataset includes max and minimum temperatures, total precipitation, snowfall, and depth of snow on ground. Some U.S. station data are typically delayed only 24 hours. 
+Global Historical Climate Network includes daily land surface observations from around the world. The GHCN-Daily was developed to meet the needs of climate analysis and monitoring studies that require data at a sub-monthly time resolution (e.g., assessments of the frequency of heavy rainfall, heat wave duration, etc.). The dataset includes observations from World Meteorological Organization, Cooperative, and CoCoRaHS networks. If observed, the station dataset includes max and minimum temperatures, total precipitation, snowfall, and depth of snow on ground. Some U.S. station data are typically delayed only 24 hours.
+
+## Part 1: Analysis of hot days and nights (1940-2018)
+
+The airport record begins March 1, 1940. Since we are only interested in temperatures that occur during late spring and summer the missing months of Jan and Feb in 1940 do not influence the subsequent analysis.
+
+Get data.
+```{r}
+library(lubridate)
+
+TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
+               stringsAsFactors = FALSE,
+               header = TRUE) %>%
+      filter(STATION == 'USW00093805') %>%
+      mutate(Date = as.Date(DATE)) %>%
+      mutate(Year = year(Date), 
+             Month = month(Date), 
+             Day = day(Date),
+             doy = yday(Date)) %>%
+      select(Date, Year, Month, Day, doy, TMAX, TMIN, PRCP)
+```
+
+How many? Monthly counts. Median date.
+```{r}
+TLH.df %>%
+  summarize(N100 = sum(TMAX >= 100, na.rm = TRUE),
+            N77 = sum(TMIN >= 77, na.rm = TRUE))
+
+TLH.df %>%
+  group_by(Month) %>%
+  summarize(N100 = sum(TMAX >= 100, na.rm = TRUE),
+            N77 = sum(TMIN >= 77, na.rm = TRUE)) %>%
+  filter(Month %in% 5:10) %>%
+  mutate(MonthName = month.name[Month]) %>%
+  select(MonthName, N100, N77)
+
+TLH.df %>%
+  filter(TMAX >= 100) %>%
+  summarize(medianDate = median(doy))
+
+# 182: July 1st
+TLH.df %>%
+  filter(TMIN >= 77) %>%
+  summarize(medianDate = median(doy))
+# 216: August 4th
+
+library(reshape2)
+
+DOY <- TLH.df %>%
+  group_by(doy) %>%
+  summarize("High Temperature At Or Above 100°" = sum(TMAX >= 100, na.rm = TRUE),
+            "Low Temperature At Or Above 77°" = sum(TMIN >= 77, na.rm = TRUE)) %>%
+  filter(doy %in% 139:250) %>%
+  melt(id.vars = "doy")
+
+library(ggplot2)
+
+ggplot(DOY, aes(x = doy, y = value)) +
+  geom_bar(stat = 'identity', col = "white", fill = "gray70") +
+  scale_x_continuous(position = "bottom", 
+                     breaks = c(152, 166, 182, 196, 213, 227, 244),
+                     labels = c("June 1", "June 15", 
+                                "July 1", "July 15", 
+                                "August 1", "August 15",
+                                "September 1")) +
+  scale_y_continuous(position = "left") +
+  facet_wrap(~ variable, nrow = 2, strip.position = "top") +
+  ylab("") + xlab("") +
+  ggtitle(label = "Number of Extremely Hot Days & Nights By Day of Year",
+          subtitle = "Tallahassee, Florida, USA (1940-2018)") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.y = element_blank(),
+        strip.text.x = element_text(size = 12),
+        legend.position = "none") +
+  labs(caption = "Data: Global Historical Climate Network") +
+  theme(plot.caption = element_text(size = 9, color = "grey50")) 
+
+
+```
+
 
 ### Analysis of temperatures when data are available at both sites.
 ```{r}
