@@ -22,6 +22,10 @@ Sixty-one percent of major Southeast cities are exhibiting some aspects of worse
 
 High daytime temperatures can also be dangerous if strenuous activities are undertaken without proper hydration and acclimatization. 
 
+Tropical moisture will increase as well as mid level subsidence decrease.
+
+The more striking takeaway is that the lows are getting hotter, at a much faster rate. That's where the real public health implications bear out in the short term.
+
 Deep layer ridging, loss of daytime heating
 
 Compare with Albany GA
@@ -47,38 +51,45 @@ TLH_site.sf <- st_as_sf(TLH_site.df,
 st_crs(TLH_site.sf) <- 4326
 
 library(tmap)
-library(spData)
 
-FL1.sf <- us_states %>%
-  filter(NAME == "Florida")
+library(USAboundaries)
+
+USA <- us_states() %>%
+  filter(name != "Hawaii" & name != "Alaska")
+
+FL1.sf <- us_states() %>%
+  filter(name == "Florida")
 
 ( inset.tm <- tm_shape(world) +
   tm_polygons() +
 tm_shape(world[world$name_long == "United States", ]) +
   tm_polygons(col = "gray") +
-tm_shape(us_states, projection = "laea_NA", is.master = TRUE) + 
+tm_shape(USA, projection = "laea_NA", is.master = TRUE) + 
   tm_borders() +
-  tm_compass(type = "arrow", position = c("left", "bottom")) +
-  tm_scale_bar(position = c("left", "bottom"), size = .75) +
+#  tm_compass(type = "arrow", position = c("left", "bottom")) +
+#  tm_scale_bar(position = c("left", "bottom"), size = .75) +
   tm_style("natural") +
 tm_shape(FL1.sf) +
   tm_polygons(col = "white") )
-
-library(USAboundaries)
 
 FL.sf <- us_states(states = "Florida")
 FL.sf$name <- "            Florida"
 ALGA.sf <- us_states(states = c("Alabama", "Georgia"))
 
+Leon.sf <- us_counties(states = "FL") %>%
+  filter(name == "Leon")
+
 ( main.tm <- 
     tm_shape(FL.sf, projection = "laea_NA") +
        tm_polygons(col = "white") +
-       tm_text(text = "name", size = 2) +
+       tm_text(text = "name", size = 1.5) +
     tm_shape(ALGA.sf) +
        tm_polygons(col = "gray") +
+    tm_shape(Leon.sf) +
+       tm_polygons() +
     tm_shape(TLH_site.sf) +
-       tm_symbols(shape = 21) +
-       tm_text(text = "name") + 
+       tm_symbols(shape = 21, size = .1, col = NA) +
+ #      tm_text(text = "name") + 
     tm_compass(type = "arrow", position = c("right", "top")) +
     tm_scale_bar(position = c("right", "top"), size = .75) +
     tm_style("natural") )
@@ -179,8 +190,32 @@ ggplot(DOY, aes(x = doy, y = value)) +
         legend.position = "none") +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
+```
 
-
+Bar plot of the number of 100+ degree days.
+```{r}
+TLH.df %>% 
+  group_by(Year) %>%
+  summarize("High Temperature At Or Above 100°"  = sum(TMAX >= 100, na.rm = TRUE),
+            "Low Temperature At Or Above 77°" = sum(TMIN >= 77, na.rm = TRUE)) %>%
+  melt(id.vars = "Year") %>%
+ggplot(aes(x = Year, y = value, fill = value)) + 
+  geom_bar(stat='identity') + 
+  scale_fill_continuous(low = 'orange', high = 'red') +
+  scale_x_continuous(position = "top", breaks = seq(1945, 2015, by = 10)) +
+  scale_y_continuous(limits = c(0, 25), position = "right") +
+#  geom_text(aes(label = value), vjust = -.5, size = 2.5) +
+  facet_wrap(~ variable, nrow = 2, strip.position = "bottom") +
+  ylab("") + xlab("") +
+  ggtitle(label = "Number of Extremely Hot Days & Nights",
+          subtitle = "Tallahassee, Florida, USA (1940-2018)") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        strip.text.x = element_text(size = 11),
+        legend.position = "none") +
+  labs(caption = "Data: Global Historical Climate Network") +
+  theme(plot.caption = element_text(size = 9, color = "grey50")) 
 ```
 
 
@@ -448,32 +483,6 @@ ggplot(aes(x = Year, y = avgT)) +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) +
   theme_bw()
-```
-
-Bar plot of the number of 100+ degree days.
-```{r}
-TLH.df %>% 
-  group_by(Year) %>%
-  summarize("High Temperature At Or Above 100°"  = sum(TMAX >= 100, na.rm = TRUE),
-            "Low Temperature At Or Above 77°" = sum(TMIN >= 77, na.rm = TRUE)) %>%
-  melt(id.vars = "Year") %>%
-ggplot(aes(x = Year, y = value, fill = value)) + 
-  geom_bar(stat='identity') + 
-  scale_fill_continuous(low = 'orange', high = 'red') +
-  scale_x_continuous(position = "top", breaks = seq(1945, 2015, by = 10)) +
-  scale_y_continuous(limits = c(0, 25), position = "right") +
-#  geom_text(aes(label = value), vjust = -.5, size = 2.5) +
-  facet_wrap(~ variable, nrow = 2, strip.position = "bottom") +
-  ylab("") + xlab("") +
-  ggtitle(label = "Number of Extremely Hot Days",
-          subtitle = "Tallahassee, Florida, USA (1940-2018)") +
-  theme_minimal() +
-  theme(panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank(),
-        strip.text.x = element_text(size = 11),
-        legend.position = "none") +
-  labs(caption = "Data: Global Historical Climate Network") +
-  theme(plot.caption = element_text(size = 9, color = "grey50")) 
 ```
 
 Last hot days?
