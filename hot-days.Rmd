@@ -7,9 +7,11 @@ editor_options:
   chunk_output_type: console
 ---
 
+Title: Extremely hot days in Tallahassee, Florida, USA: 1940-2018
+
 ### Lede: The hots are getting hotter
 
-Here we look at the statistics of extremely hot days in Tallahassee, Florida. An extremely hot day is defined as one in which the maximum temperature exceeds 100$+^\circ$ F. An extremely hot night is defined as one in which the minimum temperature fails to drop below 77$+^\circ$ F.   A record of daily maximum temperatures from the regional airport reveals an increasing trend in the occurrence of such days since the 1970s. The trend results from an increase in the occurrence of hot events and an increase in the average length of an event. We speculate that the trend is related to changes in the intensity and location of deep layer ridging, perhaps exacerbated by changes in land use and global warming.
+We examine the statistics of extremely hot days in Tallahassee, Florida. An extremely hot day is defined as one in which the maximum temperature exceeds 100$+^\circ$ F. An extremely hot night is defined as one in which the minimum temperature fails to drop below 77$+^\circ$ F.   A record of daily maximum temperatures from the regional airport reveals an increasing trend in the occurrence of such days since the 1970s. The trend results from an increase in the occurrence of hot events and an increase in the average length of an event. We speculate that the trend is related to changes in the intensity and location of deep layer ridging, perhaps exacerbated by changes in land use and global warming.
 
 The combination of heat and humidity is expected to reach excessive, unhealthy levels. In particular, this event is early in the season when people are less acclimated to the heat, and this is expected to be a long duration event. These factors tend to exacerbate any heat related illness. The most vulnerable populations include the elderly, homeless, and those with medical conditions, especially
 where there is a lack of air conditioning. With the holiday weekend, outdoor event goers will also have an increased risk for heat related illness. There is also a larger than normal population without air conditioning in areas recovering from Hurricane Michael.
@@ -51,7 +53,6 @@ TLH_site.sf <- st_as_sf(TLH_site.df,
 st_crs(TLH_site.sf) <- 4326
 
 library(tmap)
-
 library(USAboundaries)
 
 USA <- us_states() %>%
@@ -100,8 +101,6 @@ print(inset.tm, vp = viewport(.3, .3, width = .7, height = .4))
 ```
 ###Figure: Location map. Tallahassee.
 
-Improvements: Add Leon County border. Spell out TLH.
-
 Get the data. Ordered online from 
 https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00093805/detail
 
@@ -117,7 +116,7 @@ Global Historical Climate Network includes daily land surface observations from 
 
 ## Part 1: Analysis of hot days and nights (1940-2018)
 
-The airport record begins March 1, 1940. Since we are only interested in temperatures that occur during late spring and summer the missing months of Jan and Feb in 1940 do not influence the subsequent analysis.
+The airport record begins March 1, 1940. Since we are only interested in temperatures that occur during late spring and summer the missing months of Jan and Feb in 1940 do not influence any of the key aspects of the present analysis.
 
 Get data.
 ```{r}
@@ -135,7 +134,58 @@ TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
       select(Date, Year, Month, Day, doy, TMAX, TMIN, PRCP)
 ```
 
-How many? Monthly counts. Median date.
+Histogram of daily high temperature.
+```{r}
+FreqByT <- TLH.df %>%
+  group_by(TMAX) %>%
+  summarize(nH = n())
+FreqByT2 <-FreqByT %>%
+  filter(TMAX >= 100)
+
+( p1 <- ggplot(FreqByT, aes(x = TMAX, y = nH)) +
+  geom_bar(stat = 'identity', col = 'white', fill = "gray70") +
+  geom_bar(data = FreqByT2, stat = 'identity', fill = "orange") +
+  scale_x_continuous(breaks = seq(40, 100, 10),
+                     labels = paste0(seq(40, 100, 10), "°")) +
+  scale_y_continuous(position = "right", limits = c(0, 1600)) +
+  ylab("") +  xlab("") +
+#  ggtitle(label = "Frequency of Daily High Temperatures",
+#          subtitle = "Tallahassee, FL, USA (1940-2018)") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) )
+
+FreqByT <- TLH.df %>%
+  group_by(TMIN) %>%
+  summarize(nH = n())
+FreqByT2 <-FreqByT %>%
+  filter(TMIN >= 77)
+
+(p2 <- ggplot(FreqByT, aes(x = TMIN, y = nH)) +
+  geom_bar(stat = 'identity', col = 'white', fill = "gray70") +
+  geom_bar(data = FreqByT2, stat = 'identity', fill = "orange") +
+  scale_x_continuous(breaks = seq(20, 80, 10),
+                     labels = paste0(seq(20, 80, 10), "°")) +
+  scale_y_continuous(position = "right", limits = c(0, 1600)) +
+  ylab("") + xlab("") +
+#  ggtitle(label = "Frequency of Daily Low Temperatures",
+#          subtitle = "Tallahassee, FL, USA (1940-2018)") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) )
+
+library(ggpubr)
+
+ggarrange(p1, p2, 
+          nrow = 2, 
+          labels = c("Number of Days by Maximum Temperature", 
+                     "Number of Days by Minimum Temperature"),
+          font.label = list(face = "plain", size = 11))
+```
+
+Define a hot day/night.
+
+How many hot days? Monthly counts. Median date.
 ```{r}
 TLH.df %>%
   summarize(N100 = sum(TMAX >= 100, na.rm = TRUE),
@@ -163,15 +213,13 @@ library(reshape2)
 
 DOY <- TLH.df %>%
   group_by(doy) %>%
-  summarize("High Temperature At Or Above 100°" = sum(TMAX >= 100, na.rm = TRUE),
-            "Low Temperature At Or Above 77°" = sum(TMIN >= 77, na.rm = TRUE)) %>%
+  summarize("Number of Times the Daily High Reached 100° F" = sum(TMAX >= 100, na.rm = TRUE),
+            "Number of Times the Daily Low Remained Above 77° F" = sum(TMIN >= 77, na.rm = TRUE)) %>%
   filter(doy %in% 139:250) %>%
   melt(id.vars = "doy")
 
-library(ggplot2)
-
 ggplot(DOY, aes(x = doy, y = value)) +
-  geom_bar(stat = 'identity', col = "white", fill = "gray70") +
+  geom_bar(stat = 'identity', col = "white", fill = "orange") +
   scale_x_continuous(position = "bottom", 
                      breaks = c(152, 166, 182, 196, 213, 227, 244),
                      labels = c("June 1", "June 15", 
@@ -181,12 +229,12 @@ ggplot(DOY, aes(x = doy, y = value)) +
   scale_y_continuous(position = "left") +
   facet_wrap(~ variable, nrow = 2, strip.position = "top") +
   ylab("") + xlab("") +
-  ggtitle(label = "Number of Extremely Hot Days & Nights By Day of Year",
-          subtitle = "Tallahassee, Florida, USA (1940-2018)") +
+#  ggtitle(label = "Number of Extremely Hot Days & Nights By Day of Year",
+#          subtitle = "Tallahassee, Florida, USA (1940-2018)") +
   theme_minimal() +
   theme(panel.grid.minor = element_blank(),
         panel.grid.major.y = element_blank(),
-        strip.text.x = element_text(size = 12),
+        strip.text.x = element_text(size = 11),
         legend.position = "none") +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
@@ -217,7 +265,6 @@ ggplot(aes(x = Year, y = value, fill = value)) +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
 ```
-
 
 ### Analysis of temperatures when data are available at both sites.
 ```{r}
