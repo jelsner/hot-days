@@ -11,7 +11,7 @@ Title: Extremely hot days in Tallahassee, Florida, USA: 1940-2018
 
 ### Lede: The hots are getting hotter
 
-We examine the statistics of extremely hot days in Tallahassee, Florida. An extremely hot day is defined as one in which the maximum temperature exceeds 100$+^\circ$ F. An extremely hot night is defined as one in which the minimum temperature fails to drop below 77$+^\circ$ F.   A record of daily maximum temperatures from the regional airport reveals an increasing trend in the occurrence of such days since the 1970s. The trend results from an increase in the occurrence of hot events and an increase in the average length of an event. We speculate that the trend is related to changes in the intensity and location of deep layer ridging, perhaps exacerbated by changes in land use and global warming.
+We examine the statistics of extremely hot days in Tallahassee, Florida. An extremely hot day is defined as one in which the high temperature exceeds 100$+^\circ$ F. An extremely hot night is defined as one in which the low temperature fails to drop below 77$+^\circ$ F. A record of daily high and low temperatures from the regional airport reveals an increasing trend in the occurrence of such days since the 1970s. The trend results from an increase in the occurrence of hot events and an increase in the average length of an event. We speculate that the trend is related to changes in the intensity and location of deep layer ridging, perhaps exacerbated by changes in land use and global warming.
 
 The combination of heat and humidity is expected to reach excessive, unhealthy levels. In particular, this event is early in the season when people are less acclimated to the heat, and this is expected to be a long duration event. These factors tend to exacerbate any heat related illness. The most vulnerable populations include the elderly, homeless, and those with medical conditions, especially
 where there is a lack of air conditioning. With the holiday weekend, outdoor event goers will also have an increased risk for heat related illness. There is also a larger than normal population without air conditioning in areas recovering from Hurricane Michael.
@@ -134,6 +134,16 @@ TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
       select(Date, Year, Month, Day, doy, TMAX, TMIN, PRCP)
 ```
 
+Add temperatures for July 8, 2005 from Weather Underground.
+```{r}
+TLH.df$Date[is.na(TLH.df$TMAX)]
+TLH.df$Date[is.na(TLH.df$TMIN)]
+
+TLH.df$TMAX[TLH.df$Date == "2005-07-08"] <- 96
+TLH.df$TMIN[TLH.df$Date == "2005-07-08"] <- 71
+TLH.df$TMIN[TLH.df$Date == "2002-10-08"] <- TLH.df$TMIN[TLH.df$Date == "2002-10-07"]
+```
+
 Histogram of daily high temperature.
 ```{r}
 FreqByT <- TLH.df %>%
@@ -182,8 +192,11 @@ ggarrange(p1, p2,
                      "Number of Days by Minimum Temperature"),
           font.label = list(face = "plain", size = 11))
 ```
+###Figure: The number of days by temperature. By high temperature (top) and by low temperature (bottom).
 
-Define a hot day/night.
+The most commn high temperature is 90F and the most common low temperature is 72F. The modes are close to the right-tail extremes (high: 100+, low: 77+).
+
+Definitions: hot day: high temperature reaches 100F. hot night: low temperature fails to fall below 77F.
 
 How many hot days? Monthly counts. Median date.
 ```{r}
@@ -239,9 +252,35 @@ ggplot(DOY, aes(x = doy, y = value)) +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
 ```
+###Figure: Number of times by day of the year the daily high reached 100F (top) and number of times the daily high remained at or above 77F.
+
+Daily high and low
+```{r}
+dailyRecs <- TLH.df %>% 
+  group_by(Month, Day) %>%
+  summarize(dMaxMax = max(TMAX, na.rm=TRUE),
+            dMaxMin = max(TMIN, na.rm=TRUE),
+            dMaxMaxY = Year[which.max(TMAX)],
+            dMaxMinY = Year[which.max(TMIN)])
+
+dailyRecs %>%
+  group_by(dMaxMaxY) %>%
+  summarize(count = length(dMaxMaxY)) %>%
+ggplot(aes(x = dMaxMaxY, y = count)) +
+  geom_bar(stat = 'identity') +
+  ylab("Number of dates having the daily record high maximum")
+
+dailyRecs %>%
+  group_by(dMaxMinY) %>%
+  summarize(count = length(dMaxMinY)) %>%
+ggplot(aes(x = dMaxMinY, y = count)) +
+  geom_bar(stat = 'identity') +
+  ylab("Number of dates having the daily record high minimum")
+```
 
 Bar plot of the number of 100+ degree days.
 ```{r}
+library(MASS)
 TLH.df %>% 
   group_by(Year) %>%
   summarize("High Temperature At Or Above 100°"  = sum(TMAX >= 100, na.rm = TRUE),
@@ -249,6 +288,9 @@ TLH.df %>%
   melt(id.vars = "Year") %>%
 ggplot(aes(x = Year, y = value, fill = value)) + 
   geom_bar(stat='identity') + 
+     stat_smooth(method = "glm.nb",
+                 formula = y ~ x, 
+                 se = TRUE) +
   scale_fill_continuous(low = 'orange', high = 'red') +
   scale_x_continuous(position = "top", breaks = seq(1945, 2015, by = 10)) +
   scale_y_continuous(limits = c(0, 25), position = "right") +
@@ -265,6 +307,100 @@ ggplot(aes(x = Year, y = value, fill = value)) +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
 ```
+
+Quantify the trend.
+```{r}
+Yearly.df <- TLH.df %>% 
+  group_by(Year) %>%
+  summarize(MaxCount  = sum(TMAX >= 100, na.rm = TRUE),
+            MinCount = sum(TMIN >= 77, na.rm = TRUE))
+
+coef(glm.nb(MaxCount ~ 1, data = Yearly.df))  # .49 annual rate of 100+F days
+coef(glm.nb(MaxCount ~ Year, data = Yearly.df)) # 2.1% per year increase in annual rate
+
+coef(glm.nb(MinCount ~ 1, data = Yearly.df))  # .71 annual rate of 100+F days
+coef(glm.nb(MinCount ~ Year, data = Yearly.df)) # 4.5% per year increase in annual rate
+
+```
+
+What does an annual rate of .49 mean? It means that we can expect a 49% chance of at least one 100F day per year. Or a 1 - (1 -.49) * (1-.49) * (1-.49) = 86.7 chance of at least one 100F day every 3 years. 
+
+What does the coefficient on the Year term mean? Ten years from now there will be a 1 - (1 - .49 * 1.02^10) ^ 3 = 93.5% chance of at least one 100F day every 3 years.
+
+
+
+Atmospheric conditions that produce extremely hot days in Tallahassee are broad scale. This means that the high pressure ridge producing subsidence and keeping the air relatively dry spreads across several states often encompassing the entire southeast. The occurrence of a 100$+^\circ$F day is often followed by a better than average chance of another hot day.
+
+Consecutive hot days tend to result in the hottest days. As a consequence of this clustering, it is useful to consider hot events. Here a hot day event is defined as one or more days in which the temperature reaches at least 100F. An event might consist of a single day or it may consist of several consecutive days (heat wave).
+
+Determine hot day events. REPEAT FOR hot nights.
+```{r}
+hotEvents <- rle(TLH.df$TMAX >= 100)
+
+eventLength <- hotEvents$lengths[hotEvents$values]
+eventNo <- rep(1:length(eventLength), eventLength)
+
+Events.df <- TLH.df %>%
+  filter(TMAX >= 100) %>%
+  mutate(eventNo = eventNo)
+```
+
+Determine the number of days between successive 100+F days. Add this as another column.
+```{r}
+Events.df <- Events.df %>%
+  mutate(daysBetween = Date - lag(Date))
+
+Events.df %>%
+  arrange(desc(daysBetween))
+```
+
+Length and intensity of events.
+```{r}
+LI.df <- Events.df %>%
+  group_by(eventNo) %>%
+  summarize(eventLength = n(),
+              avgEventT = mean(TMAX),
+              maxEventT = max(TMAX),
+              whenMaxEvT = which.max(TMAX),
+              Year = Year[1])
+
+# empirical chance of another 100+F day
+sum(LI.df$eventLength > 1)/length(LI.df$eventLength) 
+
+cor(LI.df$eventLength, LI.df$maxEventT, method = "s")
+
+LI2.df <- LI.df %>%
+  group_by(Year) %>%
+  summarize(count = n(),
+            avgEL = mean(eventLength))
+
+AllYears <- data.frame(Year = 1950:2018)
+LI3.df = merge(AllYears, LI2.df, by = "Year", all.x = TRUE)
+LI3.df$count[is.na(LI3.df$count)] = 0
+
+library(MASS)
+ggplot(data = LI3.df, aes(x = Year, y = count)) +
+   geom_point() +
+   stat_smooth(method = "glm.nb",
+              formula = y ~ x, 
+              data = LI3.df, se = TRUE)
+
+ggplot(data = LI3.df, aes(x = Year, y = count)) +
+   geom_point() +
+   stat_smooth(method = "glm",
+               method.args = list(family = "poisson"),
+               formula = y ~ x, 
+               se = TRUE) 
+
+ggplot(data = LI3.df, aes(x = Year, y = avgEL)) +
+  geom_point() +
+  stat_smooth(method = "glm",
+               method.args = list(family = "Gamma"),
+               formula = y ~ x, 
+               se = TRUE)
+```
+
+
 
 ### Analysis of temperatures when data are available at both sites.
 ```{r}
