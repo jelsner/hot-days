@@ -411,7 +411,7 @@ Sites.df <- data.frame(Name = c("TLH", "DTN"),
 ```{r}
 library(ggmap)
 
-register_google(key = "AIzaSyCLdtc1bnlJEkXxk3nP1sNNbJRHTc6CzQY")
+register_google(key = "")
 getOption("ggmap")
 
 geocode("Tallahassee Airport")
