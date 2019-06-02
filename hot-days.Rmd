@@ -9,28 +9,9 @@ editor_options:
 
 Title: Extremely hot days in Tallahassee, Florida, USA: 1940-2018
 
-### Lede: The hots are getting hotter
+### Lede: The hots are getting hotter: A statistical analysis of extremely hot days in Tallahassee, FL, USA: 1940-2018
 
-We examine the statistics of extremely hot days in Tallahassee, Florida. An extremely hot day is defined as one in which the high temperature exceeds 100$+^\circ$ F. An extremely hot night is defined as one in which the low temperature fails to drop below 77$+^\circ$ F. A record of daily high and low temperatures from the regional airport reveals an increasing trend in the occurrence of such days since the 1970s. The trend results from an increase in the occurrence of hot events and an increase in the average length of an event. We speculate that the trend is related to changes in the intensity and location of deep layer ridging, perhaps exacerbated by changes in land use and global warming.
-
-The combination of heat and humidity is expected to reach excessive, unhealthy levels. In particular, this event is early in the season when people are less acclimated to the heat, and this is expected to be a long duration event. These factors tend to exacerbate any heat related illness. The most vulnerable populations include the elderly, homeless, and those with medical conditions, especially
-where there is a lack of air conditioning. With the holiday weekend, outdoor event goers will also have an increased risk for heat related illness. There is also a larger than normal population without air conditioning in areas recovering from Hurricane Michael.
-
-The dry air mass will allow for efficient solar heating today. Highs will be in the upper 90s and near 100 away from the immediate coast. A Heat Advisory is in effect today through Monday in the areas hit hardest by Hurricane Michael. Due to deforestation, temps may be a few degrees hotter in these locations.
-
-Clearly, weather patterns explain this heat wave. I often cringe when people use a "cold day" to refute climate change. I also point out that "one hot" day or week doesn't necessarily affirm it either. However, there is plenty of evidence that climate change is happening so resist the urge to use one day. The 2018 National Climate Assessment report (and most studies or statements from credible science organizations) released by the Trump Administration highlighted that extreme heat will become a "new normal." For example, the figure below illustrates that the number of nighttime temperatures above 75 degrees F has increased dramatically. This is far more worrisome than daytime temperatures from the standpoint of human health according to scientific and health experts. The report points out:
-
-Sixty-one percent of major Southeast cities are exhibiting some aspects of worsening heat waves, which is a higher percentage than any other region of the country. Hot days and warm nights together impact human comfort and health and result in the need for increased cooling efforts. Agriculture is also impacted by a lack of nighttime cooling.
-
-High daytime temperatures can also be dangerous if strenuous activities are undertaken without proper hydration and acclimatization. 
-
-Tropical moisture will increase as well as mid level subsidence decrease.
-
-The more striking takeaway is that the lows are getting hotter, at a much faster rate. That's where the real public health implications bear out in the short term.
-
-Deep layer ridging, loss of daytime heating
-
-Compare with Albany GA
+Compare with Albany GA?
 
 About the climate in Tallahassee.
 http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
@@ -87,9 +68,9 @@ Leon.sf <- us_counties(states = "FL") %>%
     tm_shape(ALGA.sf) +
        tm_polygons(col = "gray") +
     tm_shape(Leon.sf) +
-       tm_polygons() +
+       tm_polygons(col = "gray30") +
     tm_shape(TLH_site.sf) +
-       tm_symbols(shape = 21, size = .1, col = NA) +
+       tm_symbols(shape = 19, size = .1, col = "orange") +
  #      tm_text(text = "name") + 
     tm_compass(type = "arrow", position = c("right", "top")) +
     tm_scale_bar(position = c("right", "top"), size = .75) +
@@ -132,7 +113,12 @@ TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
              Day = day(Date),
              doy = yday(Date)) %>%
       select(Date, Year, Month, Day, doy, TMAX, TMIN, PRCP)
+
+quantile(TLH.df$TMAX, probs = c(.95, .99, .996))
+quantile(TLH.df$TMIN, probs = c(.95, .99, .996))
 ```
+
+The 99.6th percentile of the distribution of daily high and low temperatures in the observations. 4 days in 1000.
 
 Add temperatures for July 8, 2005 from Weather Underground.
 ```{r}
@@ -192,7 +178,7 @@ ggarrange(p1, p2,
                      "Number of Days by Minimum Temperature"),
           font.label = list(face = "plain", size = 11))
 ```
-###Figure: The number of days by temperature. By high temperature (top) and by low temperature (bottom).
+###Figure: The number of days by high temperature (top) and by low temperature (bottom).
 
 The most commn high temperature is 90F and the most common low temperature is 72F. The modes are close to the right-tail extremes (high: 100+, low: 77+).
 
@@ -312,8 +298,11 @@ Quantify the trend.
 ```{r}
 Yearly.df <- TLH.df %>% 
   group_by(Year) %>%
-  summarize(MaxCount  = sum(TMAX >= 100, na.rm = TRUE),
-            MinCount = sum(TMIN >= 77, na.rm = TRUE))
+  summarize(MaxCount  = sum(TMAX >= 100),
+            MinCount = sum(TMIN >= 77))
+
+var(Yearly.df$MaxCount)/mean(Yearly.df$MaxCount)
+var(Yearly.df$MinCount)/mean(Yearly.df$MinCount)
 
 coef(glm.nb(MaxCount ~ 1, data = Yearly.df))  # .49 annual rate of 100+F days
 coef(glm.nb(MaxCount ~ Year, data = Yearly.df)) # 2.1% per year increase in annual rate
@@ -321,11 +310,19 @@ coef(glm.nb(MaxCount ~ Year, data = Yearly.df)) # 2.1% per year increase in annu
 coef(glm.nb(MinCount ~ 1, data = Yearly.df))  # .71 annual rate of 100+F days
 coef(glm.nb(MinCount ~ Year, data = Yearly.df)) # 4.5% per year increase in annual rate
 
+fitNB <- glm.nb(MaxCount ~ Year, data = Yearly.df)
+fitPO <- glm(MaxCount ~ Year, data = Yearly.df, family = "poisson")
+AIC(fitNB); AIC(fitPO)
+
+pchisq(2 * (logLik(fitNB) - logLik(fitPO)), df = 1, lower.tail = FALSE)
+
+predict(fitNB, newdata = data.frame(Year = 1940), type = "response", se = TRUE)
+predict(fitNB, newdata = data.frame(Year = 2018), type = "response", se = TRUE)
 ```
 
-What does an annual rate of .49 mean? It means that we can expect a 49% chance of at least one 100F day per year. Or a 1 - (1 -.49) * (1-.49) * (1-.49) = 86.7 chance of at least one 100F day every 3 years. 
+What does an annual rate of .63 mean? It means that we can expect a 1 - exp(-.63) = 47% chance of at least one 100F day per year.
 
-What does the coefficient on the Year term mean? Ten years from now there will be a 1 - (1 - .49 * 1.02^10) ^ 3 = 93.5% chance of at least one 100F day every 3 years.
+An annual rate of 3.2 means we can now expect a 1 - exp(-3.2) = 96% chance of at least one 100F day per year.
 
 
 
@@ -378,6 +375,8 @@ AllYears <- data.frame(Year = 1950:2018)
 LI3.df = merge(AllYears, LI2.df, by = "Year", all.x = TRUE)
 LI3.df$count[is.na(LI3.df$count)] = 0
 
+var(LI3.df$count)/mean(LI3.df$count)
+
 library(MASS)
 ggplot(data = LI3.df, aes(x = Year, y = count)) +
    geom_point() +
@@ -400,9 +399,37 @@ ggplot(data = LI3.df, aes(x = Year, y = avgEL)) +
                se = TRUE)
 ```
 
+### Analysis of temperatures when data are available at both sites
 
+Raster map. Close up.
+```{r}
+Sites.df <- data.frame(Name = c("TLH", "DTN"), 
+                       Latitude = c(30.39306, 30.43333),
+                       Longitude = c(-84.35333, -84.28333))
+```
 
-### Analysis of temperatures when data are available at both sites.
+```{r}
+library(ggmap)
+
+register_google(key = "AIzaSyCLdtc1bnlJEkXxk3nP1sNNbJRHTc6CzQY")
+getOption("ggmap")
+
+geocode("Tallahassee Airport")
+
+p <- ggmap(get_googlemap(center = c(lon = -84.315, lat = 30.41),
+                    zoom = 13, scale = 2,
+                    maptype ='satellite',
+                    color = 'color'))
+p + geom_point(aes(x = Longitude, y = Latitude), 
+               data = Sites.df, size = 2, col = "orange") +
+    geom_label(aes(x = Longitude, y = Latitude, label = Name), 
+             data = Sites.df,
+             nudge_y = -.0025) +
+    theme_void() +
+    theme(legend.position = "none")
+```
+###Figure: Map of Tallahassee showing the locations of the two temperature records.
+
 ```{r}
 df <- read.csv(file = 'TLH_SOD1892.csv',
                stringsAsFactors = FALSE,
