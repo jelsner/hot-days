@@ -7,19 +7,15 @@ editor_options:
   chunk_output_type: console
 ---
 
-Title: Extremely hot days in Tallahassee, Florida, USA: 1940-2018
-
-### Lede: The hots are getting hotter: A statistical analysis of extremely hot days in Tallahassee, FL, USA: 1940-2018
-
-Compare with Albany GA?
+### The hots are getting hotter: A statistical analysis of extremely hot days in Tallahassee, FL, USA: 1940-2018
 
 About the climate in Tallahassee.
 http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
-
-Need a map with inset. See file:///Users/jameselsner/Desktop/ClassNotes/appl-spat-stat/09-Lesson.html
+http://www.fao.org/geonetwork/srv/en/main.home
 
 Airport weather station site location 30.39306°, -84.35333°
 Downtown weather station site location 30.43333°, -84.28333°
+Compare with Albany GA?
 
 Create a map with an inset showing the location of Tallahassee, FL.
 ```{r}
@@ -93,11 +89,7 @@ https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:BUM00015614/deta
 
 https://docs.opendata.aws/noaa-ghcn-pds/readme.html
 
-Global Historical Climate Network includes daily land surface observations from around the world. The GHCN-Daily was developed to meet the needs of climate analysis and monitoring studies that require data at a sub-monthly time resolution (e.g., assessments of the frequency of heavy rainfall, heat wave duration, etc.). The dataset includes observations from World Meteorological Organization, Cooperative, and CoCoRaHS networks. If observed, the station dataset includes max and minimum temperatures, total precipitation, snowfall, and depth of snow on ground. Some U.S. station data are typically delayed only 24 hours.
-
 ## Part 1: Analysis of hot days and nights (1940-2018)
-
-The airport record begins March 1, 1940. Since we are only interested in temperatures that occur during late spring and summer the missing months of Jan and Feb in 1940 do not influence any of the key aspects of the present analysis.
 
 Get data.
 ```{r}
