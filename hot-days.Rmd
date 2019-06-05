@@ -125,6 +125,8 @@ TLH.df$TMIN[TLH.df$Date == "2002-10-08"] <- TLH.df$TMIN[TLH.df$Date == "2002-10-
 Histogram of daily high temperature.
 ```{r}
 FreqByT <- TLH.df %>%
+#  filter(Month >= 5 & Month <= 9) %>%
+#    filter(Year < 1980) %>%
   group_by(TMAX) %>%
   summarize(nH = n())
 FreqByT2 <-FreqByT %>%
@@ -144,6 +146,8 @@ FreqByT2 <-FreqByT %>%
         panel.grid.major = element_blank()) )
 
 FreqByT <- TLH.df %>%
+#    filter(Month >= 5 & Month <= 9) %>%
+#  filter(Year < 1980) %>%
   group_by(TMIN) %>%
   summarize(nH = n())
 FreqByT2 <-FreqByT %>%
@@ -172,9 +176,48 @@ ggarrange(p1, p2,
 ```
 ###Figure: The number of days by high temperature (top) and by low temperature (bottom).
 
-The most commn high temperature is 90F and the most common low temperature is 72F. The modes are close to the right-tail extremes (high: 100+, low: 77+).
+We consider only the extreme right tail of the distribution defined as days in which the high temperature reached or exceeded 100F. The number of days that it reached 98 is 202, 99 is 111, 100 is 70 and 101 is 24. While arbitrary, the century mark adds a psychological component to the perception of a hot day providing a way to anchor the results of this study to a well understood threshold.
+
+The most common high temperature is 90F and the most common low temperature is 72F. The modes are close to the right-tail extremes (high: 100+, low: 77+).
 
 Definitions: hot day: high temperature reaches 100F. hot night: low temperature fails to fall below 77F.
+
+By epoch.
+```{r}
+FreqByT <- TLH.df %>%
+  mutate(Epoch = Year <= 1980) %>%
+  group_by(Epoch, TMAX) %>%
+  summarize(nH = n()) %>%
+  group_by(Epoch) %>%
+  mutate(nDays = sum(nH),
+         perc = nH/nDays)
+
+FreqByT2 <-FreqByT %>%
+  filter(TMAX >= 100)
+
+ggplot(FreqByT, aes(x = TMAX, y = perc, fill = Epoch)) +
+  geom_bar(stat = 'identity', col = 'white', position = "dodge") +
+#  geom_bar(data = FreqByT2, stat = 'identity', fill = "orange", position = "dodge") +
+  scale_x_continuous(breaks = seq(40, 100, 10),
+                     labels = paste0(seq(40, 100, 10), "°")) +
+  scale_y_continuous(position = "right") +
+  ylab("") +  xlab("") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) 
+
+ggplot(FreqByT[FreqByT$TMAX >= 80, ], aes(x = TMAX, y = perc, color = Epoch)) +
+#  geom_line() +
+  stat_smooth(method = "loess", formula = y ~ x, span = .33, size = 1, se = FALSE) +
+  scale_x_continuous(breaks = seq(80, 104, 2),
+                     labels = paste0(seq(80, 104, 2), "°")) +
+  scale_y_continuous(position = "right") +
+  scale_color_manual(labels = c("1980-2018", "1940-1979"), values = c("red", "blue")) +
+  ylab("") +  xlab("") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) 
+```
 
 How many hot days? Monthly counts. Median date.
 ```{r}
@@ -284,6 +327,18 @@ ggplot(aes(x = Year, y = value, fill = value)) +
         legend.position = "none") +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
+```
+
+Compare with the number of 90F days. The upward trend starts at 95F. No changes in temps lower than that. This contrasts with the standard model.
+```{r}
+TLH.df %>% 
+#  filter(Month >= 5 & Month <= 9) %>%
+  group_by(Year) %>% 
+  summarize(n90 = sum(TMAX == 78)) %>% 
+#  summarize(mT = mean(TMAX)) %>%
+  ggplot(aes(Year, n90)) + 
+  geom_point() +
+  geom_smooth(method = lm)
 ```
 
 Quantify the trend.
