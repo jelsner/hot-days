@@ -89,7 +89,7 @@ https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:BUM00015614/deta
 
 https://docs.opendata.aws/noaa-ghcn-pds/readme.html
 
-## Part 1: Analysis of hot days and nights (1940-2018)
+## Hot days and nights
 
 Get data.
 ```{r}
@@ -105,12 +105,7 @@ TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
              Day = day(Date),
              doy = yday(Date)) %>%
       select(Date, Year, Month, Day, doy, TMAX, TMIN, PRCP)
-
-quantile(TLH.df$TMAX, probs = c(.95, .99, .996))
-quantile(TLH.df$TMIN, probs = c(.95, .99, .996))
 ```
-
-The 99.6th percentile of the distribution of daily high and low temperatures in the observations. 4 days in 1000.
 
 Add temperatures for July 8, 2005 from Weather Underground.
 ```{r}
@@ -182,20 +177,34 @@ The most common high temperature is 90F and the most common low temperature is 7
 
 Definitions: hot day: high temperature reaches 100F. hot night: low temperature fails to fall below 77F.
 
-How many hot days/nights? Monthly counts. Median date. Seasonal variability.
+How many hot days/nights? Median date. Seasonal variability.
 ```{r}
 TLH.df %>%
-  summarize(N100 = sum(TMAX >= 100, na.rm = TRUE),
-            N77 = sum(TMIN >= 77, na.rm = TRUE))
+  summarize(nD = n(),
+            N100 = sum(TMAX >= 100),
+            N77 = sum(TMIN >= 77),
+            qtle100 = 1 - N100/nD,
+            qtle77 = 1 - N77/nD)
+```
 
+The 99.555th percentile of the distribution of daily high temperatures in the observations. 4 days in 1000. The 99.4368th percentile of the distribution of daily low temperatures.
+
+Monthly counts.
+```{r}
 TLH.df %>%
   group_by(Month) %>%
   summarize(N100 = sum(TMAX >= 100, na.rm = TRUE),
             N77 = sum(TMIN >= 77, na.rm = TRUE)) %>%
   filter(Month %in% 5:10) %>%
   mutate(MonthName = month.name[Month]) %>%
-  select(MonthName, N100, N77)
+  dplyr::select(MonthName, N100, N77)
+```
+###Table: Monthly counts.
 
+The potential for a hot day or a hot night in Tallahassee begins in May. A hot day has never been recorded after August but there have been hot nights in September and even a few in October. The frequency of hot days peaks in June where as the frequency of hot nights peaks in August. 
+
+Seasonality. 
+```{r}
 TLH.df %>%
   filter(TMAX >= 100) %>%
   summarize(medianDate = median(doy))
@@ -236,9 +245,11 @@ ggplot(DOY, aes(x = doy, y = value)) +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
 ```
-###Figure: Number of times by day of the year the daily high reached 100F (top) and number of times the daily high remained at or above 77F.
+###Figure: Number of times by day of the year the daily high reached 100F (top) and number of times the daily low remained at or above 77F.
 
-Daily high and low
+This seasonal difference between hot days and nights is evident in Fig.~\ref{}. The frequency distribution of hot day occurrence by day of year is skewed toward early summer. In contrast the frequency distribution of hot night occurrence is skewed toward mid to late summer. The median date for a hot day is July 1st and the median date for a hot night is August 6th.
+
+NOT USED
 ```{r}
 dailyRecs <- TLH.df %>% 
   group_by(Month, Day) %>%
@@ -262,7 +273,7 @@ ggplot(aes(x = dMaxMinY, y = count)) +
   ylab("Number of dates having the daily record high minimum")
 ```
 
-Bar plot of the number of 100+ degree days.
+Annual time series of extreme counts.
 ```{r}
 library(MASS)
 TLH.df %>% 
@@ -272,9 +283,10 @@ TLH.df %>%
   melt(id.vars = "Year") %>%
 ggplot(aes(x = Year, y = value, fill = value)) + 
   geom_bar(stat='identity') + 
-#     stat_smooth(method = "glm.nb",
-#                 formula = y ~ x, 
-#                 se = TRUE) +
+     stat_smooth(method = "glm.nb",
+                 formula = y ~ x, 
+                 se = FALSE,
+                 col = "green") +
   scale_fill_continuous(low = 'orange', high = 'red') +
   scale_x_continuous(position = "top", breaks = seq(1945, 2015, by = 10)) +
   scale_y_continuous(limits = c(0, 25), position = "right") +
@@ -290,8 +302,20 @@ ggplot(aes(x = Year, y = value, fill = value)) +
         legend.position = "none") +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
+
+TLH.df %>% 
+  group_by(Year) %>%
+  summarize(N100 = sum(TMAX >= 100)) %>%
+  arrange(desc(N100))
+
+TLH.df %>% 
+  group_by(Year) %>%
+  summarize(N77 = sum(TMIN >= 77)) %>%
+  arrange(desc(N77))
 ```
 ### Figure: Time series of the number of extremely hot days and nights.
+
+Counts of hot days and nights by year show upward trends since 1940. The trend is more pronounced for the occurrence of hot nights. Only relatively few years had hot days or nights before 1980. Since then more years than not have at least one hot day and night. There were 16 hot days in 1998, 14 in 2011 and 11 in 2000. There were 21 hot nights in 2010, 15 in 20115, 14 in 2016 and 13 in 2005.
 
 Quantify the trend.
 ```{r}
@@ -858,7 +882,7 @@ dfH2 <- dfH2 %>%
   mutate(Hour =  hour(round(DateTime, "hours")))
 ```
 
-### Challenge to the standard model
+### Compare with the standard model
 
 Compare with the number of 90F days. The upward trend starts at 95F. No changes in temps lower than that. This contrasts with the standard model where we expect upward trends in all temperatures above the average temperature.
 ```{r}
