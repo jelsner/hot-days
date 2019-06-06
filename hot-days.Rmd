@@ -84,7 +84,7 @@ https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00093805/deta
 TALLAHASSEE REGIONAL AIRPORT, FL US (Station ID: GHCND:USW00093805)
 TALLAHASSEE, FL US (Station ID: GHCND:USC00088754)
 
-Do the same for Sofia Bulgaria
+Sofia Bulgaria
 https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:BUM00015614/detail
 
 https://docs.opendata.aws/noaa-ghcn-pds/readme.html
@@ -182,44 +182,7 @@ The most common high temperature is 90F and the most common low temperature is 7
 
 Definitions: hot day: high temperature reaches 100F. hot night: low temperature fails to fall below 77F.
 
-By epoch.
-```{r}
-FreqByT <- TLH.df %>%
-  mutate(Epoch = Year <= 1980) %>%
-  group_by(Epoch, TMAX) %>%
-  summarize(nH = n()) %>%
-  group_by(Epoch) %>%
-  mutate(nDays = sum(nH),
-         perc = nH/nDays)
-
-FreqByT2 <-FreqByT %>%
-  filter(TMAX >= 100)
-
-ggplot(FreqByT, aes(x = TMAX, y = perc, fill = Epoch)) +
-  geom_bar(stat = 'identity', col = 'white', position = "dodge") +
-#  geom_bar(data = FreqByT2, stat = 'identity', fill = "orange", position = "dodge") +
-  scale_x_continuous(breaks = seq(40, 100, 10),
-                     labels = paste0(seq(40, 100, 10), "°")) +
-  scale_y_continuous(position = "right") +
-  ylab("") +  xlab("") +
-  theme_minimal() +
-  theme(panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank()) 
-
-ggplot(FreqByT[FreqByT$TMAX >= 80, ], aes(x = TMAX, y = perc, color = Epoch)) +
-#  geom_line() +
-  stat_smooth(method = "loess", formula = y ~ x, span = .33, size = 1, se = FALSE) +
-  scale_x_continuous(breaks = seq(80, 104, 2),
-                     labels = paste0(seq(80, 104, 2), "°")) +
-  scale_y_continuous(position = "right") +
-  scale_color_manual(labels = c("1980-2018", "1940-1979"), values = c("red", "blue")) +
-  ylab("") +  xlab("") +
-  theme_minimal() +
-  theme(panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank()) 
-```
-
-How many hot days? Monthly counts. Median date.
+How many hot days/nights? Monthly counts. Median date. Seasonal variability.
 ```{r}
 TLH.df %>%
   summarize(N100 = sum(TMAX >= 100, na.rm = TRUE),
@@ -309,9 +272,9 @@ TLH.df %>%
   melt(id.vars = "Year") %>%
 ggplot(aes(x = Year, y = value, fill = value)) + 
   geom_bar(stat='identity') + 
-     stat_smooth(method = "glm.nb",
-                 formula = y ~ x, 
-                 se = TRUE) +
+#     stat_smooth(method = "glm.nb",
+#                 formula = y ~ x, 
+#                 se = TRUE) +
   scale_fill_continuous(low = 'orange', high = 'red') +
   scale_x_continuous(position = "top", breaks = seq(1945, 2015, by = 10)) +
   scale_y_continuous(limits = c(0, 25), position = "right") +
@@ -328,18 +291,7 @@ ggplot(aes(x = Year, y = value, fill = value)) +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
 ```
-
-Compare with the number of 90F days. The upward trend starts at 95F. No changes in temps lower than that. This contrasts with the standard model.
-```{r}
-TLH.df %>% 
-#  filter(Month >= 5 & Month <= 9) %>%
-  group_by(Year) %>% 
-  summarize(n90 = sum(TMAX == 78)) %>% 
-#  summarize(mT = mean(TMAX)) %>%
-  ggplot(aes(Year, n90)) + 
-  geom_point() +
-  geom_smooth(method = lm)
-```
+### Figure: Time series of the number of extremely hot days and nights.
 
 Quantify the trend.
 ```{r}
@@ -371,13 +323,13 @@ What does an annual rate of .63 mean? It means that we can expect a 1 - exp(-.63
 
 An annual rate of 3.2 means we can now expect a 1 - exp(-3.2) = 96% chance of at least one 100F day per year.
 
-
+### Hot events
 
 Atmospheric conditions that produce extremely hot days in Tallahassee are broad scale. This means that the high pressure ridge producing subsidence and keeping the air relatively dry spreads across several states often encompassing the entire southeast. The occurrence of a 100$+^\circ$F day is often followed by a better than average chance of another hot day.
 
-Consecutive hot days tend to result in the hottest days. As a consequence of this clustering, it is useful to consider hot events. Here a hot day event is defined as one or more days in which the temperature reaches at least 100F. An event might consist of a single day or it may consist of several consecutive days (heat wave).
+Consecutive hot days tend to result in the hottest days. As a consequence of this clustering, it is useful to consider hot events. Here a hot event is defined as one or more days in which the temperature reaches at least 100F. An event might consist of a single day or it may consist of several consecutive days (heat wave).
 
-Determine hot day events. REPEAT FOR hot nights.
+Determine hot events (day).
 ```{r}
 hotEvents <- rle(TLH.df$TMAX >= 100)
 
@@ -408,29 +360,38 @@ LI.df <- Events.df %>%
               whenMaxEvT = which.max(TMAX),
               Year = Year[1])
 
-# empirical chance of another 100+F day
+# empirical chance of another 100+F day (41.4% chance)
 sum(LI.df$eventLength > 1)/length(LI.df$eventLength) 
 
-cor(LI.df$eventLength, LI.df$maxEventT, method = "s")
+cor(LI.df$eventLength, LI.df$maxEventT, method = "s") # .55
 
 LI2.df <- LI.df %>%
   group_by(Year) %>%
   summarize(count = n(),
             avgEL = mean(eventLength))
 
-AllYears <- data.frame(Year = 1950:2018)
+AllYears <- data.frame(Year = 1940:2018)
 LI3.df = merge(AllYears, LI2.df, by = "Year", all.x = TRUE)
 LI3.df$count[is.na(LI3.df$count)] = 0
 
-var(LI3.df$count)/mean(LI3.df$count)
+var(LI3.df$count)/mean(LI3.df$count) # 2.46
 
 library(MASS)
-ggplot(data = LI3.df, aes(x = Year, y = count)) +
-   geom_point() +
-   stat_smooth(method = "glm.nb",
-              formula = y ~ x, 
-              data = LI3.df, se = TRUE)
+(p1 <- ggplot(data = LI3.df, aes(x = Year, y = count)) +
+   geom_point(col = "gray70") +
+#   stat_smooth(method = "glm.nb",
+#              formula = y ~ x, 
+#              data = LI3.df, se = TRUE) +
+  scale_x_continuous(position = "bottom", breaks = seq(1945, 2015, by = 10)) +
+  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, 2), position = "left") +
+  ylab("") + xlab("") +
+  theme_minimal() +
+    ggtitle("Number of daytime hot events") +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) )
+  
 
+##NOT used
 ggplot(data = LI3.df, aes(x = Year, y = count)) +
    geom_point() +
    stat_smooth(method = "glm",
@@ -438,13 +399,94 @@ ggplot(data = LI3.df, aes(x = Year, y = count)) +
                formula = y ~ x, 
                se = TRUE) 
 
-ggplot(data = LI3.df, aes(x = Year, y = avgEL)) +
-  geom_point() +
-  stat_smooth(method = "glm",
-               method.args = list(family = "Gamma"),
-               formula = y ~ x, 
-               se = TRUE)
+(p2 <- ggplot(data = LI3.df, aes(x = Year, y = avgEL)) +
+   geom_bar(stat = "identity", fill = "gray70") +
+#  stat_smooth(method = "glm",
+#               method.args = list(family = "Gamma"),
+#               formula = y ~ x, 
+#               se = TRUE)
+  scale_x_continuous(position = "bottom", breaks = seq(1945, 2015, by = 10)) +
+  scale_y_continuous(position = "left", breaks = seq(1, 8, 1)) +
+  ylab("") + xlab("") +
+  theme_minimal() +
+    ggtitle("Average length (days) of daytime hot events") +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) )
+
+ggarrange(p1, p2, nrow = 2)
 ```
+###Figure: Frequency and duration of hot daytime events.
+
+Determine hot events (night).
+```{r}
+hotEvents <- rle(TLH.df$TMIN >= 77)
+
+eventLength <- hotEvents$lengths[hotEvents$values]
+eventNo <- rep(1:length(eventLength), eventLength)
+
+Events.df <- TLH.df %>%
+  filter(TMIN >= 77) %>%
+  mutate(eventNo = eventNo)
+```
+
+Determine the number of days between successive 77+F nights. Add this as another column.
+```{r}
+Events.df <- Events.df %>%
+  mutate(daysBetween = Date - lag(Date))
+
+Events.df %>%
+  arrange(desc(daysBetween))
+```
+
+Length and intensity of events.
+```{r}
+LI.df <- Events.df %>%
+  group_by(eventNo) %>%
+  summarize(eventLength = n(),
+              avgEventT = mean(TMIN),
+              maxEventT = max(TMIN),
+              whenMaxEvT = which.max(TMIN),
+              Year = Year[1])
+
+# empirical chance of another 77+F night (23.3%)
+sum(LI.df$eventLength > 1)/length(LI.df$eventLength) 
+
+cor(LI.df$eventLength, LI.df$maxEventT, method = "s") # .54
+
+LI2.df <- LI.df %>%
+  group_by(Year) %>%
+  summarize(count = n(),
+            avgEL = mean(eventLength))
+
+AllYears <- data.frame(Year = 1940:2018)
+LI3.df = merge(AllYears, LI2.df, by = "Year", all.x = TRUE)
+LI3.df$count[is.na(LI3.df$count)] = 0
+
+var(LI3.df$count)/mean(LI3.df$count)
+
+(p1 <- ggplot(data = LI3.df, aes(x = Year, y = count)) +
+  geom_point(col = "gray70") +
+  scale_x_continuous(position = "bottom", breaks = seq(1945, 2015, by = 10)) +
+  scale_y_continuous(limits = c(0, 14), breaks = seq(0, 14, 2), position = "left") +
+  ylab("") + xlab("") +
+  theme_minimal() +
+    ggtitle("Number of nighttime hot events") +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) )
+
+(p2 <- ggplot(data = LI3.df, aes(x = Year, y = avgEL)) +
+   geom_bar(stat = "identity", fill = "gray70") +
+  scale_x_continuous(position = "bottom", breaks = seq(1945, 2015, by = 10)) +
+  scale_y_continuous(position = "left", breaks = seq(1, 8, 1)) +
+  ylab("") + xlab("") +
+  theme_minimal() +
+    ggtitle("Average length (nights) of nighttime hot events") +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) )
+
+ggarrange(p1, p2, nrow = 2)
+```
+###Figure: Frequency and duration of hot nighttime events.
 
 ### Analysis of temperatures when data are available at both sites
 
@@ -814,4 +856,74 @@ Round the times to nearest hour.
 ```{r}
 dfH2 <- dfH2 %>%
   mutate(Hour =  hour(round(DateTime, "hours")))
+```
+
+### Challenge to the standard model
+
+Compare with the number of 90F days. The upward trend starts at 95F. No changes in temps lower than that. This contrasts with the standard model where we expect upward trends in all temperatures above the average temperature.
+```{r}
+TLH.df %>% 
+#  filter(Month >= 5 & Month <= 9) %>%
+  group_by(Year) %>% 
+  summarize(n90 = sum(TMAX == 78)) %>% 
+#  summarize(mT = mean(TMAX)) %>%
+  ggplot(aes(Year, n90)) + 
+  geom_point() +
+  geom_smooth(method = lm)
+```
+
+Start with a random distribution of high temps using a normal density.
+```{r}
+TLH.df %>%
+  group_by(Year < 1980) %>%
+  summarize(avgHighT = mean(TMAX),
+            avgLowT = mean(TMIN),
+            medianHighT = median(TMAX),
+            medianLowT = median(TMIN),
+            sdHighT = sd(TMAX),
+            sdLowT = sd(TMIN))
+
+Random.df <- data.frame(rT = c(round(rnorm(n = 1000000, mean = 79, sd = 12.1)),
+                               round(rnorm(n = 1000000, mean = 80.1, sd = 12.2))),
+                        Epoch = c(rep("1940-1979", each = 1000000),
+                                  rep("1980-2018", each = 1000000)))
+
+FreqByRandomT <- Random.df %>%
+  group_by(Epoch, rT) %>%
+  summarize(nH = n()) %>%
+  group_by(Epoch) %>%
+  mutate(nDays = sum(nH),
+         perc = nH/nDays)
+
+ggplot(FreqByRandomT[FreqByRandomT$rT >= 80 & FreqByRandomT$rT <= 105 , ], aes(x = rT, y = perc, color = Epoch)) +
+  geom_line(size = 1) +
+  scale_y_continuous(position = "right") +
+  scale_color_manual(labels = c("1940-1979", "1980-2018"), values = c("blue", "red")) +
+  ylab("") +  xlab("") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) 
+```
+
+Repeat for actual temperatures.
+```{r}
+FreqByT <- TLH.df %>%
+  mutate(Epoch = Year <= 1980) %>%
+  group_by(Epoch, TMAX) %>%
+  summarize(nH = n()) %>%
+  group_by(Epoch) %>%
+  mutate(nDays = sum(nH),
+         perc = nH/nDays)
+
+ggplot(FreqByT[FreqByT$TMAX >= 80, ], aes(x = TMAX, y = perc, color = Epoch)) +
+#  geom_line() +
+  stat_smooth(method = "loess", formula = y ~ x, span = .34, size = 1, se = FALSE) +
+  scale_x_continuous(breaks = seq(80, 104, 2),
+                     labels = paste0(seq(80, 104, 2), "°")) +
+  scale_y_continuous(position = "right") +
+  scale_color_manual(labels = c("1980-2018", "1940-1979"), values = c("red", "blue")) +
+  ylab("") +  xlab("") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()) 
 ```
