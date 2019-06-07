@@ -17,38 +17,56 @@ Airport weather station site location 30.39306°, -84.35333°
 Downtown weather station site location 30.43333°, -84.28333°
 Compare with Albany GA?
 
-Create a map with an inset showing the location of Tallahassee, FL.
+Raster map. Close up.
+```{r}
+Sites.df <- data.frame(Name = c("Regional Airport", "Downtown", 
+                                "Dale Mabry Field", "Municipal Airport"), 
+                       Latitude = c(30.39306, 30.43333, 30.44, 30.38),
+                       Longitude = c(-84.35333, -84.28333, -84.338, -84.37))
+```
+
+```{r}
+library(ggmap)
+
+register_google(key = "AIzaSyC06KYSrBr-blWhA_jy24qTEgnY27CUtBg")
+getOption("ggmap")
+
+geocode("Tallahassee Airport")
+
+g_map <- get_googlemap(center = c(lon = -84.325, lat = 30.41),
+                    zoom = 13, scale = 2,
+                    maptype = 'satellite',
+                    color = 'color')
+
+cds <- attr(g_map, "bb")
+
+bbx <- st_sfc(st_polygon(list(matrix(c(cds$ll.lon, cds$ur.lat,
+                     cds$ur.lon, cds$ur.lat,
+                     cds$ur.lon, cds$ll.lat,
+                     cds$ll.lon, cds$ll.lat,
+                     cds$ll.lon, cds$ur.lat), ncol = 2, byrow = TRUE))),
+              crs = 4326)
+
+p <- ggmap(g_map)
+
+mainMap <- p + 
+    geom_point(aes(x = Longitude, y = Latitude), 
+               data = Sites.df, size = 2, col = c("orange", "red", "orange", "orange")) +
+    geom_label(aes(x = Longitude, y = Latitude, label = Name), 
+             data = Sites.df,
+             nudge_y = -.0025,
+             nudge_x = .005) +
+    theme_void() +
+    theme(legend.position = "none")
+```
+
+Create a map with an inset showing Florida.
 ```{r}
 library(sf)
 library(dplyr)
 
-TLH_site.df <- data.frame(name = "TLH            ", 
-                          lon = -84.35333, 
-                          lat = 30.39306)
-TLH_site.sf <- st_as_sf(TLH_site.df, 
-                        coords = c("lon", "lat"))
-st_crs(TLH_site.sf) <- 4326
-
 library(tmap)
 library(USAboundaries)
-
-USA <- us_states() %>%
-  filter(name != "Hawaii" & name != "Alaska")
-
-FL1.sf <- us_states() %>%
-  filter(name == "Florida")
-
-( inset.tm <- tm_shape(world) +
-  tm_polygons() +
-tm_shape(world[world$name_long == "United States", ]) +
-  tm_polygons(col = "gray") +
-tm_shape(USA, projection = "laea_NA", is.master = TRUE) + 
-  tm_borders() +
-#  tm_compass(type = "arrow", position = c("left", "bottom")) +
-#  tm_scale_bar(position = c("left", "bottom"), size = .75) +
-  tm_style("natural") +
-tm_shape(FL1.sf) +
-  tm_polygons(col = "white") )
 
 FL.sf <- us_states(states = "Florida")
 FL.sf$name <- "            Florida"
@@ -57,29 +75,32 @@ ALGA.sf <- us_states(states = c("Alabama", "Georgia"))
 Leon.sf <- us_counties(states = "FL") %>%
   filter(name == "Leon")
 
-( main.tm <- 
+inset.tm <- 
     tm_shape(FL.sf, projection = "laea_NA") +
        tm_polygons(col = "white") +
-       tm_text(text = "name", size = 1.5) +
+       tm_text(text = "name", size = 1) +
     tm_shape(ALGA.sf) +
        tm_polygons(col = "gray") +
     tm_shape(Leon.sf) +
-       tm_polygons(col = "gray30") +
-    tm_shape(TLH_site.sf) +
-       tm_symbols(shape = 19, size = .1, col = "orange") +
- #      tm_text(text = "name") + 
-    tm_compass(type = "arrow", position = c("right", "top")) +
-    tm_scale_bar(position = c("right", "top"), size = .75) +
-    tm_style("natural") )
+       tm_borders() +
+    tm_shape(bbx) +
+       tm_polygons(col = "black") +
+    tm_compass(type = "arrow", position = c("left", "bottom")) +
+    tm_scale_bar(position = c("left", "bottom"), size = .55) +
+    tm_style("natural")
 
 library(grid)
-main.tm
-print(inset.tm, vp = viewport(.3, .3, width = .7, height = .4))
+
+mainMap
+print(inset.tm, vp = viewport(.75, .25, width = .7, height = .4))
 ```
-###Figure: Location map. Tallahassee.
+###Figure: Location map. Tallahassee. Map of Tallahassee showing the locations of the two temperature records.
+
+
 
 Get the data. Ordered online from 
 https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00093805/detail
+ Elev: 55 ft. Lat: 30.3931° N Lon: -84.3533° W
 
 TALLAHASSEE REGIONAL AIRPORT, FL US (Station ID: GHCND:USW00093805)
 TALLAHASSEE, FL US (Station ID: GHCND:USC00088754)
@@ -513,35 +534,6 @@ ggarrange(p1, p2, nrow = 2)
 ###Figure: Frequency and duration of hot nighttime events.
 
 ### Analysis of temperatures when data are available at both sites
-
-Raster map. Close up.
-```{r}
-Sites.df <- data.frame(Name = c("TLH", "DTN"), 
-                       Latitude = c(30.39306, 30.43333),
-                       Longitude = c(-84.35333, -84.28333))
-```
-
-```{r}
-library(ggmap)
-
-register_google(key = "")
-getOption("ggmap")
-
-geocode("Tallahassee Airport")
-
-p <- ggmap(get_googlemap(center = c(lon = -84.315, lat = 30.41),
-                    zoom = 13, scale = 2,
-                    maptype ='satellite',
-                    color = 'color'))
-p + geom_point(aes(x = Longitude, y = Latitude), 
-               data = Sites.df, size = 2, col = "orange") +
-    geom_label(aes(x = Longitude, y = Latitude, label = Name), 
-             data = Sites.df,
-             nudge_y = -.0025) +
-    theme_void() +
-    theme(legend.position = "none")
-```
-###Figure: Map of Tallahassee showing the locations of the two temperature records.
 
 ```{r}
 df <- read.csv(file = 'TLH_SOD1892.csv',
