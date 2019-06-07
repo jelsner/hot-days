@@ -13,7 +13,7 @@ About the climate in Tallahassee.
 http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
 http://www.fao.org/geonetwork/srv/en/main.home
 
-Airport weather station site location 30.39306°, -84.35333°
+WSO weather station site: current location (since 1996) 30.39306°, -84.35333°
 Downtown weather station site location 30.43333°, -84.28333°
 Compare with Albany GA?
 
@@ -28,7 +28,7 @@ Sites.df <- data.frame(Name = c("Regional Airport", "Downtown",
 ```{r}
 library(ggmap)
 
-register_google(key = "AIzaSyC06KYSrBr-blWhA_jy24qTEgnY27CUtBg")
+register_google(key = "")
 getOption("ggmap")
 
 geocode("Tallahassee Airport")
@@ -94,7 +94,7 @@ library(grid)
 mainMap
 print(inset.tm, vp = viewport(.75, .25, width = .7, height = .4))
 ```
-###Figure: Location map. Tallahassee. Map of Tallahassee showing the locations of the two temperature records.
+###Figure: Satellite image showing the locations of the sites where daily temperature records were taken in the city of Tallahassee. Inset: Leon County, Florida. The black square inside the county is the area of the background satellite image.
 
 
 
