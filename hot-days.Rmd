@@ -60,7 +60,7 @@ mainMap <- p +
     theme(legend.position = "none")
 ```
 
-Create a map with an inset showing Florida.
+Create a map with an inset showing Florida and Leon County.
 ```{r}
 library(sf)
 library(dplyr)
@@ -212,17 +212,18 @@ The 99.555th percentile of the distribution of daily high temperatures in the ob
 
 Monthly counts.
 ```{r}
+library(xtable)
 TLH.df %>%
   group_by(Month) %>%
   summarize(N100 = sum(TMAX >= 100, na.rm = TRUE),
             N77 = sum(TMIN >= 77, na.rm = TRUE)) %>%
   filter(Month %in% 5:10) %>%
   mutate(MonthName = month.name[Month]) %>%
-  dplyr::select(MonthName, N100, N77)
+  dplyr::select(MonthName, N100, N77) %>%
+  xtable()
+  
 ```
 ###Table: Monthly counts.
-
-The potential for a hot day or a hot night in Tallahassee begins in May. A hot day has never been recorded after August but there have been hot nights in September and even a few in October. The frequency of hot days peaks in June where as the frequency of hot nights peaks in August. 
 
 Seasonality. 
 ```{r}
