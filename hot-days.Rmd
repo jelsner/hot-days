@@ -192,12 +192,6 @@ ggarrange(p1, p2,
 ```
 ###Figure: The number of days by high temperature (top) and by low temperature (bottom).
 
-We consider only the extreme right tail of the distribution defined as days in which the high temperature reached or exceeded 100F. The number of days that it reached 98 is 202, 99 is 111, 100 is 70 and 101 is 24. While arbitrary, the century mark adds a psychological component to the perception of a hot day providing a way to anchor the results of this study to a well understood threshold.
-
-The most common high temperature is 90F and the most common low temperature is 72F. The modes are close to the right-tail extremes (high: 100+, low: 77+).
-
-Definitions: hot day: high temperature reaches 100F. hot night: low temperature fails to fall below 77F.
-
 How many hot days/nights? Median date. Seasonal variability.
 ```{r}
 TLH.df %>%
@@ -206,6 +200,16 @@ TLH.df %>%
             N77 = sum(TMIN >= 77),
             qtle100 = 1 - N100/nD,
             qtle77 = 1 - N77/nD)
+
+TLH.df %>%
+  summarize(N98 = sum(TMAX == 98),
+            N99 = sum(TMAX == 99),
+            N100 = sum(TMAX == 100),
+            N101 = sum(TMAX == 101),
+            N75 = sum(TMIN == 75),
+            N76 = sum(TMIN == 76),
+            N77 = sum(TMIN == 77),
+            N78 = sum(TMIN == 78))
 ```
 
 The 99.555th percentile of the distribution of daily high temperatures in the observations. 4 days in 1000. The 99.4368th percentile of the distribution of daily low temperatures.
@@ -228,6 +232,11 @@ TLH.df %>%
 Seasonality. 
 ```{r}
 TLH.df %>%
+  filter(TMIN >= 77) %>%
+  arrange(desc(doy)) %>%
+  head
+
+TLH.df %>%
   filter(TMAX >= 100) %>%
   summarize(medianDate = median(doy))
 
@@ -241,8 +250,8 @@ library(reshape2)
 
 DOY <- TLH.df %>%
   group_by(doy) %>%
-  summarize("Number of Times the Daily High Reached 100° F" = sum(TMAX >= 100, na.rm = TRUE),
-            "Number of Times the Daily Low Remained Above 77° F" = sum(TMIN >= 77, na.rm = TRUE)) %>%
+  summarize("Number of Times the Daytime High Reached 100° F" = sum(TMAX >= 100, na.rm = TRUE),
+            "Number of Times the Nighttime Low Remained Above 77° F" = sum(TMIN >= 77, na.rm = TRUE)) %>%
   filter(doy %in% 139:250) %>%
   melt(id.vars = "doy")
 
@@ -268,8 +277,6 @@ ggplot(DOY, aes(x = doy, y = value)) +
   theme(plot.caption = element_text(size = 9, color = "grey50")) 
 ```
 ###Figure: Number of times by day of the year the daily high reached 100F (top) and number of times the daily low remained at or above 77F.
-
-This seasonal difference between hot days and nights is evident in Fig.~\ref{}. The frequency distribution of hot day occurrence by day of year is skewed toward early summer. In contrast the frequency distribution of hot night occurrence is skewed toward mid to late summer. The median date for a hot day is July 1st and the median date for a hot night is August 6th.
 
 NOT USED
 ```{r}
@@ -337,8 +344,6 @@ TLH.df %>%
 ```
 ### Figure: Time series of the number of extremely hot days and nights.
 
-Counts of hot days and nights by year show upward trends since 1940. The trend is more pronounced for the occurrence of hot nights. Only relatively few years had hot days or nights before 1980. Since then more years than not have at least one hot day and night. There were 16 hot days in 1998, 14 in 2011 and 11 in 2000. There were 21 hot nights in 2010, 15 in 20115, 14 in 2016 and 13 in 2005.
-
 Quantify the trend.
 ```{r}
 Yearly.df <- TLH.df %>% 
@@ -346,70 +351,114 @@ Yearly.df <- TLH.df %>%
   summarize(MaxCount  = sum(TMAX >= 100),
             MinCount = sum(TMIN >= 77))
 
+Yearly.df %>%
+  summarize(avgCountMax = mean(MaxCount),
+            avgCountMin = mean(MinCount),
+            varCountMax = var(MaxCount),
+            varCountMin = var(MinCount),
+            ratioMax = varCountMax/avgCountMax,
+            ratioMin = varCountMin/avgCountMin)
+
 var(Yearly.df$MaxCount)/mean(Yearly.df$MaxCount)
 var(Yearly.df$MinCount)/mean(Yearly.df$MinCount)
 
-coef(glm.nb(MaxCount ~ 1, data = Yearly.df))  # .49 annual rate of 100+F days
-coef(glm.nb(MaxCount ~ Year, data = Yearly.df)) # 2.1% per year increase in annual rate
+exp(coef(glm.nb(MaxCount ~ 1, data = Yearly.df)))  # 1.62 =  annual rate of 100+F days
+exp(coef(glm.nb(MaxCount ~ Year, data = Yearly.df))) # 1.02% or 2% per year increase in annual rate
 
-coef(glm.nb(MinCount ~ 1, data = Yearly.df))  # .71 annual rate of 100+F days
-coef(glm.nb(MinCount ~ Year, data = Yearly.df)) # 4.5% per year increase in annual rate
+exp(coef(glm.nb(MinCount ~ 1, data = Yearly.df))) # 2.05  annual rate of 77+F nights
+exp(coef(glm.nb(MinCount ~ Year, data = Yearly.df))) # 1.045 or 4.5% per year increase in annual rate
 
-fitNB <- glm.nb(MaxCount ~ Year, data = Yearly.df)
+fitNBMax <- glm.nb(MaxCount ~ Year, data = Yearly.df)
 fitPO <- glm(MaxCount ~ Year, data = Yearly.df, family = "poisson")
-AIC(fitNB); AIC(fitPO)
+AIC(fitNBMax); AIC(fitPO)
 
-pchisq(2 * (logLik(fitNB) - logLik(fitPO)), df = 1, lower.tail = FALSE)
+pchisq(2 * (logLik(fitNBMax) - logLik(fitPO)), df = 1, lower.tail = FALSE)
 
-predict(fitNB, newdata = data.frame(Year = 1940), type = "response", se = TRUE)
-predict(fitNB, newdata = data.frame(Year = 2018), type = "response", se = TRUE)
+(exp(summary(fitNBMax)$coefficients[2]) - 1) * 100  # Trend (%/yr)
+(exp(summary(fitNBMax)$coefficients[4]) - 1) * 100   # Margin of error (%/yr)
+
+predict(fitNBMax, newdata = data.frame(Year = 1940), type = "response", se = TRUE)
+predict(fitNBMax, newdata = data.frame(Year = 2018), type = "response", se = TRUE)
 ```
 
-What does an annual rate of .63 mean? It means that we can expect a 1 - exp(-.63) = 47% chance of at least one 100F day per year.
+For the negative binomial.
+```{r}
+pnbinom(0, size = 1, mu = .6278)  # probabilty of no hot days when the mean is .22
+(1 - pnbinom(0:4, size = 1, mu = .6278)) * 100 # probability of at least 1, at least 2, ...
+(1 - pnbinom(0:4, size = 1, mu = 3.235707)) * 100
+```
 
-An annual rate of 3.2 means we can now expect a 1 - exp(-3.2) = 96% chance of at least one 100F day per year.
+```{r}
+fitNBMin <- glm.nb(MinCount ~ Year, data = Yearly.df)
+
+(exp(summary(fitNBMin)$coefficients[2]) - 1) * 100  # Trend (%/yr)
+(exp(summary(fitNBMin)$coefficients[4]) - 1) * 100   # Margin of error (%/yr)
+
+predict(fitNBMin, newdata = data.frame(Year = 1940), type = "response", se = TRUE)
+predict(fitNBMin, newdata = data.frame(Year = 2018), type = "response", se = TRUE)
+
+(1 - pnbinom(0:4, size = 1, mu = .22093)) * 100 # probability of at least 1, at least 2, ...
+(1 - pnbinom(0:4, size = 1, mu = 6.77268)) * 100
+```
 
 ### Hot events
 
-Atmospheric conditions that produce extremely hot days in Tallahassee are broad scale. This means that the high pressure ridge producing subsidence and keeping the air relatively dry spreads across several states often encompassing the entire southeast. The occurrence of a 100$+^\circ$F day is often followed by a better than average chance of another hot day.
-
-Consecutive hot days tend to result in the hottest days. As a consequence of this clustering, it is useful to consider hot events. Here a hot event is defined as one or more days in which the temperature reaches at least 100F. An event might consist of a single day or it may consist of several consecutive days (heat wave).
-
-Determine hot events (day).
+Determine hot events (day & night).
 ```{r}
-hotEvents <- rle(TLH.df$TMAX >= 100)
+hotDayEvents <- rle(TLH.df$TMAX >= 100)
+hotNightEvents <- rle(TLH.df$TMIN >= 77)
 
-eventLength <- hotEvents$lengths[hotEvents$values]
-eventNo <- rep(1:length(eventLength), eventLength)
+dayEventLength <- hotDayEvents$lengths[hotDayEvents$values]
+dayEventNo <- rep(1:length(dayEventLength), dayEventLength)
 
-Events.df <- TLH.df %>%
+nightEventLength <- hotNightEvents$lengths[hotNightEvents$values]
+nightEventNo <- rep(1:length(nightEventLength), nightEventLength)
+
+dayEvents.df <- TLH.df %>%
   filter(TMAX >= 100) %>%
-  mutate(eventNo = eventNo)
+  mutate(dayEventNo = dayEventNo)
+
+nightEvents.df <- TLH.df %>%
+  filter(TMIN >= 77) %>%
+  mutate(nightEventNo = nightEventNo)
 ```
 
-Determine the number of days between successive 100+F days. Add this as another column.
+Determine the number of days between successive 100+F days. Add this as another column. Repeat for nights between successive 77+F nights.
 ```{r}
-Events.df <- Events.df %>%
+dayEvents.df <- dayEvents.df %>%
   mutate(daysBetween = Date - lag(Date))
+dayEvents.df %>%
+  arrange(desc(daysBetween)) 
 
-Events.df %>%
-  arrange(desc(daysBetween))
+nightEvents.df <- nightEvents.df %>%
+  mutate(nightsBetween = Date - lag(Date))
+nightEvents.df %>%
+  arrange(desc(nightsBetween))
 ```
 
 Length and intensity of events.
 ```{r}
-LI.df <- Events.df %>%
-  group_by(eventNo) %>%
+LIdayEvents.df <- dayEvents.df %>%
+  group_by(dayEventNo) %>%
   summarize(eventLength = n(),
-              avgEventT = mean(TMAX),
-              maxEventT = max(TMAX),
-              whenMaxEvT = which.max(TMAX),
-              Year = Year[1])
+            avgEventT = mean(TMAX),
+            maxEventT = max(TMAX),
+            whenMaxEvT = which.max(TMAX),
+            Year = Year[1])
+LInightEvents.df <- nightEvents.df %>%
+  group_by(nightEventNo) %>%
+  summarize(eventLength = n(),
+            avgEventT = mean(TMIN),
+            maxEventT = max(TMIN),
+            whenMaxEvT = which.max(TMIN),
+            Year = Year[1])
 
-# empirical chance of another 100+F day (41.4% chance)
-sum(LI.df$eventLength > 1)/length(LI.df$eventLength) 
+# empirical chance of another hot day 
+sum(LIdayEvents.df$eventLength > 1)/length(LIdayEvents.df$eventLength) # 41.4%
+sum(LInightEvents.df$eventLength > 1)/length(LInightEvents.df$eventLength) # 23.3%
 
-cor(LI.df$eventLength, LI.df$maxEventT, method = "s") # .55
+cor(LIdayEvents.df$eventLength, LIdayEvents.df$maxEventT, method = "s") # .55
+cor(LInightEvents.df$eventLength, LInightEvents.df$maxEventT, method = "s") # .54
 
 LI2.df <- LI.df %>%
   group_by(Year) %>%
