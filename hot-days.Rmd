@@ -96,8 +96,6 @@ print(inset.tm, vp = viewport(.75, .25, width = .7, height = .4))
 ```
 ###Figure: Satellite image showing the locations of the sites where daily temperature records were taken in the city of Tallahassee. Inset: Leon County, Florida. The black square inside the county is the area of the background satellite image.
 
-
-
 Get the data. Ordered online from 
 https://www.ncdc.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:USW00093805/detail
  Elev: 55 ft. Lat: 30.3931° N Lon: -84.3533° W
@@ -136,6 +134,23 @@ TLH.df$Date[is.na(TLH.df$TMIN)]
 TLH.df$TMAX[TLH.df$Date == "2005-07-08"] <- 96
 TLH.df$TMIN[TLH.df$Date == "2005-07-08"] <- 71
 TLH.df$TMIN[TLH.df$Date == "2002-10-08"] <- TLH.df$TMIN[TLH.df$Date == "2002-10-07"]
+```
+
+Last hot days? Hottest days. Hot days since 2009
+```{r}
+TLH.df %>% 
+  filter(TMAX >= 100 & Month == 5) %>%
+  arrange(desc(Date)) %>%
+  head(n = 20)
+
+TLH.df %>%
+  arrange(desc(TMAX)) %>%
+  head()
+
+TLH.df %>%
+  filter(Year >= 2009 & TMAX >= 100) %>%
+  dplyr::select(Date) %>%
+  pull()
 ```
 
 Histogram of daily high temperature.
@@ -676,30 +691,6 @@ pred2 <- predict(lrm1, newdata = data.frame(TMAX = c(102, 103)), type = "respons
 ```
 
 What is the likely number of 100 degree days at the airport over the period of record when the daily high temperature was recorded downtown?
-```{r}
-DTN.df <- ALL.df %>%
-  filter(STATION == "USC00088754" & Date < as.Date("1940-03-01"))
-
-pred3 <- predict(lrm1, 
-                 newdata = data.frame(TMAX = DTN.df$TMAX[DTN.df$TMAX >= 95]), 
-                 type = "response")
-
-counts <- numeric()
-for(i in 1:length(pred3)){
-counts <- c(counts, rbinom(n = 100, size = 1, prob = pred3[i]))
-}
-  
-n100 <- numeric()
-for(i in 1:100){
-TMAX2 <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
-                    fit1, n = 1000) %>%
-  mutate(TMAX2est = as.integer(.prediction) + minTMAX2 - 1) %>%
-  group_by(Date) %>%
-  sample_n(size = 1) %>%
-  pull(TMAX2est) 
-n100 <- c(n100, sum(TMAX2 >= 100))
-}
-```
 
 Bayesian logistic regression.
 ```{r}
@@ -711,22 +702,6 @@ OVRhotDays.df <- OVR.df %>%
          TI = as.integer(TMAX2 >= 100))
 
 family <- brms::bernoulli
-formula <- TI ~ 1
-
-get_prior(formula,
-          data = OVRhotDays.df, 
-          family = family)
-
-fit0 <- brm(formula = formula,
-            data = OVRhotDays.df,
-            family = family,
-            prior = set_prior("student_t(3, 0, 10)", class = "Intercept"),
-            seed = 9121)
-
-fixef(fit0)
-
-fit0_out <- predict(fit0)
-head(fit0_out)
 
 formula <- TI ~ TMAX
 get_prior(formula, data = OVRhotDays.df, family = family)
@@ -770,17 +745,17 @@ out$I <- rep(1:100, each = 11)
 
 library(ggridges)
 
-ggplot(out, aes(x = TMAX, y = prob100, group = I)) +
+( p1 <- ggplot(out, aes(x = TMAX, y = prob100, group = I)) +
   geom_point(alpha = .2, size = .5) +
   scale_x_continuous(breaks = 96:106) +
-  xlab("High Temperature Downtown Tallahassee (°F)") +
-  ylab("Posterior Probability") +
-  ggtitle("Chance WSO Tallahassee Reports a 100+°F Day",
-          subtitle = "Given High Temperatures Downtown") +
+  xlab("High Temperature Downtown (°F)") +
+  ylab("Estimated Probability (%) of a Hot Day\n at WSO Tallahassee") +
+    ggtitle("A") +
+#  ggtitle("Chance WSO Tallahassee Reports a 100+°F Day",
+#          subtitle = "Given High Temperatures Downtown") +
   theme_minimal() +
-  theme(panel.grid.minor.x = element_blank())
+  theme(panel.grid.minor.x = element_blank()) )
 ```
-###Figure: Posterior probability of getting a 100+F day given the high temperature downtown.
 
 Get the data from the downtown site. Filter by days at or above 96F then use the model to predict the temperature at the airport. August 31, 1895 TMAX = 2768 is removed. Remove days after the start of the airport record.
 ```{r}
@@ -796,10 +771,10 @@ table(DTN.df$TMAX)
 sum(DTN.df$TMAX >= 100)
 ```
 
-Predictions. What is the likely number of 100 degree days at the airport over the period of record when the daily high temperature was recorded only downtown?
+What is the likely number of 100 degree days at the airport over the period of record when the daily high temperature was recorded only downtown?
 ```{r}
 n100 <- numeric()
-for(i in 1:100){
+for(i in 1:1000){
 HOTday <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
                     fit1, n = 1000) %>%
   mutate(HOTday = .prediction) %>%
@@ -809,15 +784,22 @@ HOTday <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DT
 n100 <- c(n100, sum(HOTday))
 }
 
-ggplot(as.data.frame(n100), aes(n100)) +
-  geom_bar(col = 'gray70', fill = "gray70") +
-  xlab("Number of Days") + ylab("Frequency") +
-  theme_minimal()
+( p2 <- ggplot(as.data.frame(n100), aes(n100)) +
+  geom_bar(col = 'white', fill = "gray70") +
+    scale_x_continuous(limits = c(0, 40)) +
+    xlab("Estimated Number of Hot Days\n at WSO Tallahassee (1892-1939)") + 
+    ylab("Frequency") +
+    ggtitle("B") +
+  theme_minimal() )
+
+ggarrange(p1, p2, ncol = 2, nrow = 1)
 ```
+###Figure: Model estimates. (A) Probability of getting a 100+F day given the high temperature downtown. (B) Number of hot days at WSO Tallahassee over the period 1892--1939.
+
 
 Simulate counts using the model over early years. Then concatenate the later years. 
 ```{r}
-N = 3
+N = 500
 p_draws <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
                                fit1, n = N) %>%
   mutate(Year = year(Date)) %>%
@@ -845,111 +827,83 @@ YC2.df <- ALL.df %>%
              Year = year(Date)) %>%
       group_by(Year) %>%
       summarize(.draw = i,
-                nHotDays = sum(TMAX >= 100)) %>%
+                nHotDays = sum(TMAX >= 100, na.rm = TRUE)) %>%
   rbind(YC2.df)
 }
 
 YC.df <- rbind(YC_sim.df, YC1.df, YC2.df)
-
-YC.df %>%
-  group_by(.draw) %>%
-  summarize(nYears = n())
 ```
 
-Compute the trends. Plot a density of the trends. Add the raw value.
+Compute the trends. Trace plot of the trends. Add the uncorrected value and the value from 1940-2018.
 ```{r}
 library(broom)
 
-YC.df %>% 
+Trends <- YC.df %>% 
   group_by(.draw) %>%
   do(tidy(glm.nb(nHotDays ~ Year, data = .))) %>%
   filter(term == "Year") %>%
   mutate(Trend = (exp(estimate) - 1) * 100)
 
-# Create a density plot of these trends
+uncorrectedTrend <- Trends[1, ]$Trend
+
+x <- Trends %>%
+  filter(.draw != 0) 
+posteriorMedianTrend <- median(x$Trend)
+
+( p2 <- Trends %>%
+  filter(.draw != 0) %>%
+ggplot(aes(x = Trend, y = term)) + 
+  geom_point(shape = "-", size = 5) +
+  scale_x_continuous(limits = c(0, 5), position = "right") +
+  coord_flip() + 
+  geom_point(aes(x = (exp(coef(fitNBMax)[2]) - 1) * 100), col = "orange", size = 3) +
+  geom_point(aes(x = uncorrectedTrend), col = 'gray70', size = 3) +
+  geom_point(aes(x = posteriorMedianTrend), col = 'red', size = 3) +
+  xlab("Trend (%/yr)") + ylab("") +
+    ggtitle("B") +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "none") )
 ```
 
-
-
-
-Predictions. No loop. Look at three realizations from the model. Join predictions data frame with the original downtown data frame.
+Time series of counts correct vs uncorrected.
 ```{r}
-x <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
-                    fit1, n = 1000) %>%
-  mutate(HOTday = .prediction) %>%
-  group_by(Date) %>%
-  sample_n(size = 3) %>%
-  pull(HOTday)
+YC.df <- YC.df %>%
+  filter(.draw == 1 | .draw == 0) %>%
+  mutate(Label = ifelse(.draw, "Corrected", 
+                        "Uncorrected"),
+         LabelF = factor(Label))
 
-z <- data.frame(matrix(x, ncol = 3, byrow = FALSE))
-names(z) <- c("C1", "C2", "C3")
-z$Date <- DTN.df$Date
-
-YearCount.df <- ALL.df %>%
-      filter(STATION == 'USC00088754') %>%
-      mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
-      dplyr::select(Date, Year, Month, Day, TMAX, TMIN, PRCP) %>%
-left_join(z, by = "Date") %>%
-        filter(Year < 1940) %>%
-        group_by(Year) %>%
-        summarize(C1 = sum(C1, na.rm = TRUE),
-                  C2 = sum(C2, na.rm = TRUE),
-                  C3 = sum(C3, na.rm = TRUE),
-                  Uncorrected = sum(TMAX >= 100, na.rm = TRUE))
-```
-
-Get only the data from the airport site.
-```{r}
-TLH.df <- ALL.df %>%
-      filter(STATION == 'USW00093805') %>%
-      mutate(Date = as.Date(DATE)) %>%
-      mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
-      dplyr::select(Date, Year, Month, Day, TMAX, TMIN, PRCP)
-```
-
-```{r}
-YearCount2.df <- TLH.df %>%
-  group_by(Year) %>%
-  summarize(C1 = sum(TMAX >= 100, na.rm = TRUE),
-            C2 = sum(TMAX >= 100, na.rm = TRUE),
-            C3 = sum(TMAX >= 100, na.rm = TRUE),
-            Uncorrected = C1)
-
-library(reshape2)
-YC.df <- rbind(YearCount.df, YearCount2.df) %>%
-  melt(id.vars = "Year") %>%
-  mutate(variable = factor(variable, 
-                           levels = c("Uncorrected", 
-                                      "C1", "C2", "C3")))
-levels(YC.df$variable) <- c("Raw", "Corrected 1", "Corrected 2", "Corrected 3")
-
-ggplot(YC.df, aes(x = Year, y = value, fill = value)) + 
-  geom_bar(stat='identity') + 
+( p1 <- ggplot(YC.df, aes(x = Year, y = nHotDays, fill = nHotDays)) + 
+  geom_bar(stat = 'identity', color = "white") + 
+  stat_smooth(method = "glm.nb",
+              formula = y ~ x, 
+              se = FALSE) +
   scale_fill_continuous(low = 'orange', high = 'red') +
-  geom_text(aes(label = value), vjust = -.5, size = 3) +
-  scale_y_continuous(limits = c(0, 25), position = "right") +
+  scale_color_manual(values = c("orange", "gray70")) +
+#  geom_text(aes(label = nHotDays), vjust = -.5, size = 3) +
+  scale_y_continuous(limits = c(-5, 20), position = "left") +
+  scale_x_continuous(breaks = seq(1890, 2020, 10)) + 
+  geom_vline(xintercept = 1940, col = "gray70") +
   ylab("Number of Days") +
-  facet_wrap(~ variable, nrow = 4, strip.position =  "bottom" ) +
-  ggtitle(label = expression(paste('Number of days at or above 100', {}^o, " F")),
-          subtitle = "Tallahassee, Florida, USA (1892-2018)") +
+  facet_wrap(~ Label, nrow = 2, strip.position =  "top") +
+  ggtitle("A") +
+#  ggtitle(label = expression(paste('Number of days at or above 100', {}^o, " F")),
+#          subtitle = "Tallahassee, Florida, USA (1892-2018)") +
   theme_minimal() +
   theme(axis.text.x = element_text(size = 11), 
         legend.position = "none") +
-  labs(caption = "Data: Global Historical Climate Network") +
-  theme(plot.caption = element_text(size = 9, color = "grey50"))
+#  labs(caption = "Data: Global Historical Climate Network") +
+  theme(strip.text.x = element_text(size = 13, hjust = .15)) )
+
+ggarrange(p1, p2, widths = c(6, 1))
 ```
+###Figure: Time series of hot day counts by year. Corrected (top) and uncorrected (bottom).
 
 
-
-
-
-
-
-
-
-
-
-
+NOT USED
 Cumulative logistic regression model. Note: The model cannot predict temperatures above 100 at the airport since there were none in the record during the overlapping years. It can assign an exceedance probability for a larger range of input temperatures.
 ```{r}
 library(brms)
@@ -1174,26 +1128,6 @@ ggplot(aes(x = Year, y = avgT)) +
   labs(caption = "Data: Global Historical Climate Network") +
   theme(plot.caption = element_text(size = 9, color = "grey50")) +
   theme_bw()
-```
-
-Last hot days?
-```{r}
-df %>% 
-  filter(TMAX >= 100 & Month == 5) %>%
-  arrange(desc(Date)) %>%
-  head(n = 20)
-
-df %>%
-  arrange(desc(TMAX)) %>%
-  head()
-```
-
-Hot days since 2009.
-```{r}
-hotDates <- df %>%
-  filter(Year >= 2009 & TMAX >= 100) %>%
-  select(Date) %>%
-  pull()
 ```
 
 Hourly data.
