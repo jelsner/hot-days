@@ -1,6 +1,6 @@
 ---
 title: "Hot Days in Tallahassee"
-author: "James Elsner and Svetoslava Elsner"
+author: "James Elsner"
 date: "5/16/2019"
 output: html_document
 editor_options: 
@@ -13,9 +13,7 @@ About the climate in Tallahassee.
 http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
 http://www.fao.org/geonetwork/srv/en/main.home
 
-WSO weather station site: current location (since 1996) 30.39306°, -84.35333°
-Downtown weather station site location 30.43333°, -84.28333°
-Compare with Albany GA?
+WSO weather station site: current location (since 1996) 30.39306°, -84.35333° Downtown weather station site location 30.43333°, -84.28333° Compare with Albany GA?
 
 Raster map. Close up.
 ```{r}
@@ -126,6 +124,12 @@ TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
       select(Date, Year, Month, Day, doy, TMAX, TMIN, PRCP)
 ```
 
+* TMAX: Daily maximum temperature, 
+* TMIN: Daily minimum temperature, 
+* PRCP: Daily total precipitation, 
+* WDF1: Wind direction of fastest one-minute wind, 
+* WSF1: Wind speed of fastest one-minute wind
+
 Add temperatures for July 8, 2005 from Weather Underground.
 ```{r}
 TLH.df$Date[is.na(TLH.df$TMAX)]
@@ -136,16 +140,16 @@ TLH.df$TMIN[TLH.df$Date == "2005-07-08"] <- 71
 TLH.df$TMIN[TLH.df$Date == "2002-10-08"] <- TLH.df$TMIN[TLH.df$Date == "2002-10-07"]
 ```
 
-Last hot days? Hottest days. Hot days since 2009
+Last hot days? Hottest days. Hot days since 2009.
 ```{r}
 TLH.df %>% 
-  filter(TMAX >= 100 & Month == 5) %>%
+  filter(TMAX >= 100) %>%
   arrange(desc(Date)) %>%
   head(n = 20)
 
 TLH.df %>%
   arrange(desc(TMAX)) %>%
-  head()
+  head(n = 20)
 
 TLH.df %>%
   filter(Year >= 2009 & TMAX >= 100) %>%
@@ -201,8 +205,8 @@ library(ggpubr)
 
 ggarrange(p1, p2, 
           nrow = 2, 
-          labels = c("Number of Days by Maximum Temperature", 
-                     "Number of Days by Minimum Temperature"),
+          labels = c("Number of Days by High Temperature", 
+                     "Number of Days by Low Temperature"),
           font.label = list(face = "plain", size = 11))
 ```
 ###Figure: The number of days by high temperature (top) and by low temperature (bottom).
@@ -326,27 +330,31 @@ TLH.df %>%
             "Low Temperature At Or Above 77°" = sum(TMIN >= 77, na.rm = TRUE)) %>%
   melt(id.vars = "Year") %>%
 ggplot(aes(x = Year, y = value, fill = value)) + 
+  stat_smooth(method = "glm.nb",
+              formula = y ~ x, 
+              se = FALSE,
+              col = "orange") +
   geom_bar(stat='identity') + 
-     stat_smooth(method = "glm.nb",
-                 formula = y ~ x, 
-                 se = FALSE,
-                 col = "green") +
   scale_fill_continuous(low = 'orange', high = 'red') +
-  scale_x_continuous(position = "top", breaks = seq(1945, 2015, by = 10)) +
-  scale_y_continuous(limits = c(0, 25), position = "right") +
+  scale_x_continuous(position = "top", breaks = seq(1940, 2020, by = 10)) +
+  scale_y_continuous(limits = c(0, 25), position = "left") +
 #  geom_text(aes(label = value), vjust = -.5, size = 2.5) +
   facet_wrap(~ variable, nrow = 2, strip.position = "bottom") +
   ylab("") + xlab("") +
-  ggtitle(label = "Number of Extremely Hot Days & Nights",
-          subtitle = "Tallahassee, Florida, USA (1940-2018)") +
+#  ggtitle(label = "Number of Extremely Hot Days & Nights",
+#          subtitle = "Tallahassee, Florida, USA (1940-2018)") +
   theme_minimal() +
   theme(panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank(),
+#        panel.grid.major = element_blank(),
         strip.text.x = element_text(size = 11),
-        legend.position = "none") +
-  labs(caption = "Data: Global Historical Climate Network") +
-  theme(plot.caption = element_text(size = 9, color = "grey50")) 
+        legend.position = "none") 
+ # labs(caption = "Data: Global Historical Climate Network") +
+ # theme(plot.caption = element_text(size = 9, color = "grey50")) 
+```
+### Figure: Time series of the number of extremely hot days and nights.
 
+Arrange years by highest number of extreme days.
+```{r}
 TLH.df %>% 
   group_by(Year) %>%
   summarize(N100 = sum(TMAX >= 100)) %>%
@@ -357,7 +365,6 @@ TLH.df %>%
   summarize(N77 = sum(TMIN >= 77)) %>%
   arrange(desc(N77))
 ```
-### Figure: Time series of the number of extremely hot days and nights.
 
 Quantify the trend.
 ```{r}
@@ -398,7 +405,7 @@ predict(fitNBMax, newdata = data.frame(Year = 2018), type = "response", se = TRU
 
 For the negative binomial.
 ```{r}
-pnbinom(0, size = 1, mu = .6278)  # probabilty of no hot days when the mean is .22
+pnbinom(0, size = 1, mu = .6278)  # probabilty of no hot days when the mean is .6278
 (1 - pnbinom(0:4, size = 1, mu = .6278)) * 100 # probability of at least 1, at least 2, ...
 (1 - pnbinom(0:4, size = 1, mu = 3.235707)) * 100
 ```
@@ -510,8 +517,6 @@ summary(lm(eventLength ~ Year, data = LInightEvents.df))
 summary(lm(maxEventT ~ eventLength, data = LInightEvents.df))
 ```
 
-
-NOT SURE WE WANT TO DO IT THIS WAY. WHY NOT MODEL THE EVENT LENGTHS
 ```{r}
 LIdayEvents2.df <- LIdayEvents.df %>%
   group_by(Year) %>%
@@ -592,6 +597,8 @@ ggarrange(p1, p3, p2, p4, ncol = 2, nrow = 2)
 ###Figure: Frequency and duration of hot daytime and nighttime events.
 
 ###Hot day preceded or followed by a hot night
+
+Hot days and nights together.
 ```{r}
 TLH.df %>%
   filter(TMAX >= 100 & TMIN >= 77 | 
@@ -679,18 +686,11 @@ lrm1 <- glm(I(TMAX2 >= 100) ~ TMAX, data = OVR.df, family = "binomial")
 predict(lrm, newdata = data.frame(TMAX = c(95:103)), type = "response")
 AIC(lrm0)
 AIC(lrm1)
-```
 
-Predictions.
-```{r}
-pred1 <- predict(lrm1, newdata = data.frame(TMAX = c(95:104)), type = "response") * 100 
-data.frame(TMAX = c(95:104), PredProbs = pred1) %>%
+pred <- predict(lrm1, newdata = data.frame(TMAX = c(95:104)), type = "response") * 100 
+data.frame(TMAX = c(95:104), PredProbs = pred) %>%
   xtable()
-
-pred2 <- predict(lrm1, newdata = data.frame(TMAX = c(102, 103)), type = "response")
 ```
-
-What is the likely number of 100 degree days at the airport over the period of record when the daily high temperature was recorded downtown?
 
 Bayesian logistic regression.
 ```{r}
@@ -700,6 +700,12 @@ OVRhotDays.df <- OVR.df %>%
   filter(TMAX >= 94) %>%
   mutate(TDT = scale(TMAX),
          TI = as.integer(TMAX2 >= 100))
+
+OVRhotNights.df <- OVR.df %>%
+  filter(TMIN >= 73) %>%
+  mutate(TDT = scale(TMIN),
+         TI = as.integer(TMIN2 >= 77))
+
 
 family <- brms::bernoulli
 
@@ -711,15 +717,26 @@ fit1 <- brm(formula = formula,
             family = family,
             prior = c(set_prior("normal(0, 5)", class = "b"),
                      set_prior("student_t(3, 0, 10)", class = "Intercept")),
-           seed = 711)
+            seed = 711)
+
+formula <- TI ~ TMIN
+get_prior(formula, data = OVRhotNights.df, family = family)
+
+fit2 <- brm(formula = formula,
+            data = OVRhotNights.df,
+            family = family,
+            prior = c(set_prior("normal(0, 5)", class = "b"),
+                     set_prior("student_t(3, 0, 10)", class = "Intercept")),
+            seed = 713)
 
 summary(fit1)
+summary(fit2)
 
 library(tidybayes)
 library(modelr)
 
 # initialize out data frame
-out <- OVRhotDays.df %>%
+out1 <- OVRhotDays.df %>%
   data_grid(TMAX = 96:106) %>%
   add_predicted_draws(fit1, n = 1000) %>%
   mutate(pTMAX2 = .prediction) %>%
@@ -727,26 +744,22 @@ out <- OVRhotDays.df %>%
   summarize(nTMAX = n(),
             prob100 = sum(pTMAX2)/nTMAX * 100)
 
-out
-
 # rbind to the initialized data frame
 for(i in 2:100){
-  out <- OVRhotDays.df %>%
+  out1 <- OVRhotDays.df %>%
   data_grid(TMAX = 96:106) %>%
   add_predicted_draws(fit1, n = 1000) %>%
   mutate(pTMAX2 = .prediction) %>%
   group_by(TMAX) %>%
   summarize(nTMAX = n(),
             prob100 = sum(pTMAX2)/nTMAX * 100) %>%
-    rbind(out)
+    rbind(out1)
 }
 
-out$I <- rep(1:100, each = 11)
+out1$I <- rep(1:100, each = 11)
 
-library(ggridges)
-
-( p1 <- ggplot(out, aes(x = TMAX, y = prob100, group = I)) +
-  geom_point(alpha = .2, size = .5) +
+( p1 <- ggplot(out1, aes(x = TMAX, y = prob100, group = I)) +
+  geom_jitter(alpha = .2, size = .5, width = .1) +
   scale_x_continuous(breaks = 96:106) +
   xlab("High Temperature Downtown (°F)") +
   ylab("Estimated Probability (%) of a Hot Day\n at WSO Tallahassee") +
@@ -755,28 +768,62 @@ library(ggridges)
 #          subtitle = "Given High Temperatures Downtown") +
   theme_minimal() +
   theme(panel.grid.minor.x = element_blank()) )
+
+# initialize out data frame
+out2 <- OVRhotNights.df %>%
+  data_grid(TMIN = 74:81) %>%
+  add_predicted_draws(fit2, n = 1000) %>%
+  mutate(pTMIN2 = .prediction) %>%
+  group_by(TMIN) %>%
+  summarize(nTMIN = n(),
+            prob77 = sum(pTMIN2)/nTMIN * 100)
+
+# rbind to the initialized data frame
+for(i in 2:100){
+  out2 <- OVRhotNights.df %>%
+  data_grid(TMIN = 74:81) %>%
+  add_predicted_draws(fit2, n = 1000) %>%
+  mutate(pTMIN2 = .prediction) %>%
+  group_by(TMIN) %>%
+  summarize(nTMIN = n(),
+            prob77 = sum(pTMIN2)/nTMIN * 100) %>%
+    rbind(out2)
+}
+
+out2$I <- rep(1:100, each = 8)
 ```
 
-Get the data from the downtown site. Filter by days at or above 96F then use the model to predict the temperature at the airport. August 31, 1895 TMAX = 2768 is removed. Remove days after the start of the airport record.
+Get the data from the downtown site. Filter by days at or above 92F then use the model to predict the temperature at the WSO site. August 31, 1895 TMAX = 2768 is removed. Remove days after the start of the airport record. Do the same for hot minima. The 89 low stands out.
 ```{r}
-DTN.df <- ALL.df %>%
+DTN1.df <- ALL.df %>%
       filter(STATION == 'USC00088754') %>%
       filter(TMAX >= 92) %>%
       filter(TMAX != 2768) %>%
       filter(Date < as.Date("1940-03-01")) %>%
       mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
       dplyr::select(Date, Year, Month, Day, TMAX, TMIN, PRCP) 
-table(DTN.df$TMAX)
+table(DTN1.df$TMAX)
 
-sum(DTN.df$TMAX >= 100)
+sum(DTN1.df$TMAX >= 100)
+
+DTN2.df <- ALL.df %>%
+      filter(STATION == 'USC00088754') %>%
+      filter(TMIN >= 72) %>%
+      filter(Date < as.Date("1940-03-01")) %>%
+      mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
+      dplyr::select(Date, Year, Month, Day, TMAX, TMIN, PRCP) 
+table(DTN2.df$TMIN)
+
+sum(DTN2.df$TMIN >= 77)
 ```
 
-What is the likely number of 100 degree days at the airport over the period of record when the daily high temperature was recorded only downtown?
+What is the most likely number of 100 degree days at the airport over the period of record when the daily high temperature was recorded only downtown?
 ```{r}
 n100 <- numeric()
 for(i in 1:1000){
-HOTday <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
-                    fit1, n = 1000) %>%
+  print(i)
+HOTday <- add_predicted_draws(newdata = data.frame(TMAX = DTN1.df$TMAX, Date = DTN1.df$Date), 
+                              fit1, n = 1000) %>%
   mutate(HOTday = .prediction) %>%
   group_by(Date) %>%
   sample_n(size = 1) %>%
@@ -784,6 +831,22 @@ HOTday <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DT
 n100 <- c(n100, sum(HOTday))
 }
 
+n77 <- numeric()
+for(i in 1:1000){
+  print(i)
+HOTnight <- add_predicted_draws(newdata = data.frame(TMIN = DTN2.df$TMIN, Date = DTN2.df$Date), 
+                                fit2, n = 1000) %>%
+  mutate(HOTnight = .prediction) %>%
+  group_by(Date) %>%
+  sample_n(size = 1) %>%
+  pull(HOTnight) 
+n77 <- c(n77, sum(HOTnight))
+}
+
+```
+
+Histogram
+```{r}
 ( p2 <- ggplot(as.data.frame(n100), aes(n100)) +
   geom_bar(col = 'white', fill = "gray70") +
     scale_x_continuous(limits = c(0, 40)) +
@@ -793,14 +856,29 @@ n100 <- c(n100, sum(HOTday))
   theme_minimal() )
 
 ggarrange(p1, p2, ncol = 2, nrow = 1)
+
+range(n100)
+median(n100)
+
+ggplot(as.data.frame(n77), aes(n77)) +
+  geom_bar(col = 'white', fill = "gray70") +
+    scale_x_continuous(limits = c(0, 20)) +
+    xlab("Estimated Number of Hot Nights\n at WSO Tallahassee (1892-1939)") + 
+    ylab("Frequency") +
+  theme_minimal() 
+
+sum(DTN2.df$TMIN >= 77)
+sum(OVRhotNights.df$TMIN2 >= 77)
+range(n77)
+median(n77)
 ```
 ###Figure: Model estimates. (A) Probability of getting a 100+F day given the high temperature downtown. (B) Number of hot days at WSO Tallahassee over the period 1892--1939.
 
 
 Simulate counts using the model over early years. Then concatenate the later years. 
 ```{r}
-N = 500
-p_draws <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
+N <- 500
+p_draws <- add_predicted_draws(newdata = data.frame(TMAX = DTN1.df$TMAX, Date = DTN1.df$Date), 
                                fit1, n = N) %>%
   mutate(Year = year(Date)) %>%
   group_by(.draw, Year) %>%
@@ -844,16 +922,17 @@ Trends <- YC.df %>%
   filter(term == "Year") %>%
   mutate(Trend = (exp(estimate) - 1) * 100)
 
-uncorrectedTrend <- Trends[1, ]$Trend
+( uncorrectedTrend <- Trends[1, ]$Trend )
 
 x <- Trends %>%
-  filter(.draw != 0) 
-posteriorMedianTrend <- median(x$Trend)
+  filter(.draw != 0)
+( posteriorMedianTrend <- median(x$Trend) )
+quantile(x$Trend, probs = c(.25, .75))
 
 ( p2 <- Trends %>%
   filter(.draw != 0) %>%
 ggplot(aes(x = Trend, y = term)) + 
-  geom_point(shape = "-", size = 5) +
+  geom_point(shape = "-", size = 3, col = "red") +
   scale_x_continuous(limits = c(0, 5), position = "right") +
   coord_flip() + 
   geom_point(aes(x = (exp(coef(fitNBMax)[2]) - 1) * 100), col = "orange", size = 3) +
@@ -868,7 +947,7 @@ ggplot(aes(x = Trend, y = term)) +
         legend.position = "none") )
 ```
 
-Time series of counts correct vs uncorrected.
+Time series of counts corrected vs uncorrected.
 ```{r}
 YC.df <- YC.df %>%
   filter(.draw == 1 | .draw == 0) %>%
@@ -876,15 +955,15 @@ YC.df <- YC.df %>%
                         "Uncorrected"),
          LabelF = factor(Label))
 
-( p1 <- ggplot(YC.df, aes(x = Year, y = nHotDays, fill = nHotDays)) + 
-  geom_bar(stat = 'identity', color = "white") + 
+( p1 <- ggplot(YC.df, aes(x = Year, y = nHotDays, fill = nHotDays, color = LabelF)) + 
   stat_smooth(method = "glm.nb",
               formula = y ~ x, 
               se = FALSE) +
+  geom_bar(stat = 'identity', color = "white") + 
   scale_fill_continuous(low = 'orange', high = 'red') +
-  scale_color_manual(values = c("orange", "gray70")) +
+  scale_color_manual(values = c("red", "gray70")) +
 #  geom_text(aes(label = nHotDays), vjust = -.5, size = 3) +
-  scale_y_continuous(limits = c(-5, 20), position = "left") +
+  scale_y_continuous(limits = c(0, 20), position = "left") +
   scale_x_continuous(breaks = seq(1890, 2020, 10)) + 
   geom_vline(xintercept = 1940, col = "gray70") +
   ylab("Number of Days") +
@@ -902,354 +981,183 @@ ggarrange(p1, p2, widths = c(6, 1))
 ```
 ###Figure: Time series of hot day counts by year. Corrected (top) and uncorrected (bottom).
 
-
-NOT USED
-Cumulative logistic regression model. Note: The model cannot predict temperatures above 100 at the airport since there were none in the record during the overlapping years. It can assign an exceedance probability for a larger range of input temperatures.
+Simulate counts using the model over early years. Then concatenate the later years. 
 ```{r}
-library(brms)
+N <- 500
+p_draws <- add_predicted_draws(newdata = data.frame(TMIN = DTN2.df$TMIN, Date = DTN2.df$Date), 
+                               fit2, n = N) %>%
+  mutate(Year = year(Date)) %>%
+  group_by(.draw, Year) %>%
+  summarize(nHotNights = sum(.prediction > 0))
 
-OVRhotDays.df <- OVR.df %>%
-  filter(TMAX >= 94) %>%
-  mutate(minTMAX2 = min(TMAX2),
-         TI = TMAX2 - minTMAX2 + 1,
-         TDT = scale(TMAX))
+YC_sim.df <- data.frame(Year = seq(1892, 1939, 1))
 
-family <- brms::cumulative(threshold = "equidistant")
-formula <- TI ~ 1
+YC_sim.df <- left_join(YC_sim.df, p_draws, by = "Year")
 
-get_prior(formula,
-          data = OVRhotDays.df, 
-          family = family)
-
-fit0 <- brm(formula = formula,
-            data = OVRhotDays.df,
-            family = family,
-            prior = set_prior("student_t(3, 0, 10)", class = "Intercept"),
-            seed = 9121)
-
-fixef(fit0)
-
-fit0_out <- predict(fit0, probs = c(0, 1))
-head(fit0_out)
-
-formula <- TI ~ TMAX
-
-get_prior(formula, data = dfModel2, family = family)
-
-fit1 <- brm(formula = formula,
-            data = dfModel2,
-            family = family,
-            prior = c(set_prior("normal(0, 1)", class = "b"),
-                     set_prior("student_t(7, 0, 10)", class = "Intercept")),
-           seed = 78121)
-
-summary(fit1)
-
-library(tidybayes)
-library(modelr)
-
-# initialize out data frame
-out <- dfModel2 %>%
-  data_grid(TMAX = 96:106) %>%
-  add_predicted_draws(fit1, n = 1000) %>%
-  mutate(pTMAX2 = as.integer(.prediction)  + minTMAX2 - 1) %>%
-  group_by(TMAX) %>%
-  summarize(nTMAX = n(),
-            prob100 = sum(pTMAX2 >= 100)/nTMAX) 
-
-out
-
-# rbind to the initialized data frame
-for(i in 2:100){
-  out <- dfModel2 %>%
-  data_grid(TMAX = 96:106) %>%
-  add_predicted_draws(fit1, n = 1000) %>%
-  mutate(pTMAX2 = as.integer(.prediction)  + minTMAX2 - 1) %>%
-  group_by(TMAX) %>%
-  summarize(nTMAX = n(),
-            prob100 = sum(pTMAX2 >= 100)/nTMAX) %>%
-    rbind(out)
-}
-
-out$I <- rep(1:100, each = 11)
-
-library(ggridges)
-
-ggplot(out, aes(x = TMAX, y = prob100, group = I)) +
-  geom_point(alpha = .2, size = .5) +
-  scale_x_continuous(breaks = 96:106) +
-  xlab("High Temperature Downtown Tallahassee (°F)") +
-  ylab("Posterior Probability") +
-  ggtitle("Chance the TLH Airport Reports a 100+°F Day",
-          subtitle = "Given specific high temperatures downtown") +
-  theme_minimal() +
-  theme(panel.grid.minor.x = element_blank())
-```
-
-Read only the data from the downtown site. Filter by days at or above 96F then use the model to predict the temperature at the airport. August 31, 1895 TMAX = 2768 is removed.
-```{r}
-DTN.df <- read.csv(file = 'TLH_SOD1892.csv',
-               stringsAsFactors = FALSE,
-               header = TRUE) %>%
+YC1.df <- ALL.df %>%
       filter(STATION == 'USC00088754') %>%
-      filter(TMAX >= 96) %>%
-      filter(TMAX != 2768) %>%
-      mutate(Date = as.Date(DATE)) %>%
-      mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
-      select(Date, Year, Month, Day, TMAX, TMIN, PRCP) 
-table(DTN.df$TMAX)
-```
+      mutate(Date = as.Date(DATE),
+             Year = year(Date)) %>%
+      group_by(Year) %>%
+      summarize(.draw = 0,
+                nHotNights = sum(TMIN >= 77, na.rm = TRUE)) %>%
+      filter(Year < 1940)
 
-Predictions. What is the likely number of 100 degree days at the airport over the period of record when the daily high temperature was recorded downtown?
-```{r}
-n100 <- numeric()
-for(i in 1:100){
-TMAX2 <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
-                    fit1, n = 1000) %>%
-  mutate(TMAX2est = as.integer(.prediction) + minTMAX2 - 1) %>%
-  group_by(Date) %>%
-  sample_n(size = 1) %>%
-  pull(TMAX2est) 
-n100 <- c(n100, sum(TMAX2 >= 100))
-}
-```
-
-Predictions. No loop. Look at three realizations from the model. Join predictions data frame with the original downtown data frame.
-```{r}
-x <- add_predicted_draws(newdata = data.frame(TMAX = DTN.df$TMAX, Date = DTN.df$Date), 
-                    fit1, n = 1000) %>%
-  mutate(TMAX2est = as.integer(.prediction) + minTMAX2 - 1) %>%
-  group_by(Date) %>%
-  sample_n(size = 3) %>%
-  pull(TMAX2est)
-
-z <- data.frame(matrix(x, ncol = 3, byrow = FALSE))
-names(z) <- c("C1", "C2", "C3")
-z$Date <- DTN.df$Date
-
-YearCount.df <- read.csv(file = 'TLH_SOD1892.csv',
-               stringsAsFactors = FALSE,
-               header = TRUE) %>%
-      filter(STATION == 'USC00088754') %>%
-      mutate(Date = as.Date(DATE)) %>%
-      mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
-      select(Date, Year, Month, Day, TMAX, TMIN, PRCP) %>%
-left_join(z, by = "Date") %>%
-  filter(Date < as.Date("1940-03-01")) %>%
-  group_by(Year) %>%
-  summarize(C1 = sum(C1 >= 100, na.rm = TRUE),
-            C2 = sum(C2 >= 100, na.rm = TRUE),
-            C3 = sum(C3 >= 100, na.rm = TRUE),
-            Uncorrected = sum(TMAX >= 100, na.rm = TRUE))
-```
-
-Read only the data from the airport site.
-```{r}
-TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
-               stringsAsFactors = FALSE,
-               header = TRUE) %>%
+YC2.df <- data.frame()
+for(i in 0:N){
+YC2.df <- ALL.df %>%
       filter(STATION == 'USW00093805') %>%
-      mutate(Date = as.Date(DATE)) %>%
-      mutate(Year = year(Date), Month = month(Date), Day = day(Date)) %>%
-      select(Date, Year, Month, Day, TMAX, TMIN, PRCP)
-```
+      mutate(Date = as.Date(DATE),
+             Year = year(Date)) %>%
+      group_by(Year) %>%
+      summarize(.draw = i,
+                nHotNights = sum(TMIN >= 77, na.rm = TRUE)) %>%
+  rbind(YC2.df)
+}
 
-```{r}
-YearCount2.df <- TLH.df %>%
-  group_by(Year) %>%
-  summarize(C1 = sum(TMAX >= 100, na.rm = TRUE),
-            C2 = sum(TMAX >= 100, na.rm = TRUE),
-            C3 = sum(TMAX >= 100, na.rm = TRUE),
-            Uncorrected = C1)
+YC.df <- rbind(YC_sim.df, YC1.df, YC2.df)
 
-library(reshape2)
-YC.df <- rbind(YearCount.df, YearCount2.df) %>%
-  melt(id.vars = "Year") %>%
-  mutate(variable = factor(variable, 
-                           levels = c("Uncorrected", 
-                                      "C1", "C2", "C3")))
-levels(YC.df$variable) <- c("Raw", "Corrected 1", "Corrected 2", "Corrected 3")
+Trends <- YC.df %>% 
+  group_by(.draw) %>%
+  do(tidy(glm.nb(nHotNights ~ Year, data = .))) %>%
+  filter(term == "Year") %>%
+  mutate(Trend = (exp(estimate) - 1) * 100)
 
-ggplot(YC.df, aes(x = Year, y = value, fill = value)) + 
-  geom_bar(stat='identity') + 
-  scale_fill_continuous(low = 'orange', high = 'red') +
-  geom_text(aes(label = value), vjust = -.5, size = 3) +
-  scale_y_continuous(limits = c(0, 25), position = "right") +
-  ylab("Number of Days") +
-  facet_wrap(~ variable, nrow = 4, strip.position =  "bottom" ) +
-  ggtitle(label = expression(paste('Number of days at or above 100', {}^o, " F")),
-          subtitle = "Tallahassee, Florida, USA (1892-2018)") +
+( uncorrectedTrend <- Trends[1, ]$Trend )
+
+x <- Trends %>%
+  filter(.draw != 0)
+( posteriorMedianTrend <- median(x$Trend) )
+quantile(x$Trend, probs = c(.25, .75))
+
+( p2 <- Trends %>%
+  filter(.draw != 0) %>%
+ggplot(aes(x = Trend, y = term)) + 
+  geom_point(shape = "-", size = 3, col = "red") +
+  scale_x_continuous(limits = c(0, 5), position = "right") +
+  coord_flip() + 
+  geom_point(aes(x = (exp(coef(fitNBMin)[2]) - 1) * 100), col = "orange", size = 3) +
+  geom_point(aes(x = uncorrectedTrend), col = 'gray70', size = 3) +
+  geom_point(aes(x = posteriorMedianTrend), col = 'red', size = 3) +
+  xlab("Trend (%/yr)") + ylab("") +
+    ggtitle("B") +
   theme_minimal() +
-  theme(axis.text.x = element_text(size = 11), 
+  theme(panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "none") )
+
+YC.df <- YC.df %>%
+  filter(.draw == 1 | .draw == 0) %>%
+  mutate(Label = ifelse(.draw, "Corrected", 
+                        "Uncorrected"),
+         LabelF = factor(Label))
+
+p1 <- ggplot(YC.df, aes(x = Year, y = nHotNights, fill = nHotNights, color = LabelF)) + 
+  geom_vline(xintercept = 1940, col = "gray70") +
+  stat_smooth(method = "glm.nb",
+              formula = y ~ x, 
+              se = FALSE) +
+  geom_bar(stat = 'identity', color = "white") + 
+  scale_fill_continuous(low = 'orange', high = 'red') +
+  scale_color_manual(values = c("red", "gray70")) +
+  scale_y_continuous(limits = c(0, 25), position = "left") +
+  scale_x_continuous(breaks = seq(1890, 2020, 10)) + 
+  ylab("Number of Hot Nights") +
+  facet_wrap(~ Label, nrow = 2, strip.position =  "top") +
+  ggtitle("A") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 9), 
+        panel.grid.minor.y = element_blank(),
         legend.position = "none") +
-  labs(caption = "Data: Global Historical Climate Network") +
-  theme(plot.caption = element_text(size = 9, color = "grey50"))
+  theme(strip.text.x = element_text(size = 11, hjust = .15))
 
+ggarrange(p1, p2, widths = c(6, 1))
 ```
+###Figure: Time series of hot night counts by year. Corrected (top) and uncorrected (bottom).
 
+### Shifting extremes
 
-
-
-* TMAX: Daily maximum temperature, 
-* TMIN: Daily minimum temperature, 
-* PRCP: Daily total precipitation, 
-* WDF1: Wind direction of fastest one-minute wind, 
-* WSF1: Wind speed of fastest one-minute wind
-
-Check for missing values in maximum and minimum temperature
+Trends in TMAX and TMIN.
 ```{r}
-sum(is.na(TLH.df$TMAX))
-TLH.df$Date[is.na(TLH.df$TMAX)]
-TLH.df$Date[is.na(TLH.df$TMIN)]
-```
+mean(TLH.df$TMAX)
+mean(TLH.df$TMIN)
 
-Add temperatures for July 8, 2005 from Weather Underground.
-```{r}
-TLH.df$TMAX[TLH.df$Date == "2005-07-08"] <- 96
-TLH.df$TMIN[TLH.df$Date == "2005-07-08"] <- 71
-```
 
-Line plot of the average annual daily high (low) temperature.
-https://cedricscherer.netlify.com/2019/05/17/the-evolution-of-a-ggplot-ep.-1/
-```{r}
-library(ggplot2)
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
 
-TLH.df %>% 
-  filter(Year >= 1941, TMIN >= 77) %>%
+TLH.df %>%
+#  filter(Month >= 5 & Month <= 8) %>%
+#  filter(doy >= 145 & doy <= 241) %>%  # Day
+  filter(doy >= 146 & doy <= 282) %>%  # Night
+  group_by(Year < 1980) %>%
+  summarize(avgTMAX = mean(TMAX),
+            avgTMIN = mean(TMIN),
+            medTMAX = median(TMAX),
+            medTMIN = median(TMIN),
+            modeTMAX = Mode(TMAX),
+            modeTMIN = Mode(TMIN),
+            nDays = n(),
+            modalFreqMax = sum(TMAX == modeTMAX)/nDays,
+            modalFreqMin = sum(TMIN == modeTMIN)/nDays)
+
+TLH.df %>%
+#  filter(Month >= 5 & Month <= 8) %>%
+  filter(doy >= 145 & doy <= 241) %>%  # Day
+#  filter(doy >= 146 & doy <= 282) %>%  # Night
   group_by(Year) %>%
-  summarize(avgT = mean(TMIN, na.rm = TRUE)) %>%
-#  summarize(avgP = mean(PRCP, na.rm = TRUE)) %>%
-ggplot(aes(x = Year, y = avgT)) +
-  geom_point(size = 3) +
-  geom_line() +
-  ylab(expression(paste('Temperature (', {}^o, " F)"))) +
-  ggtitle(label = "Annual Average Daily High Temperature",
-          subtitle = "Tallahassee, Florida, USA (1941-2018)") +
-  labs(caption = "Data: Global Historical Climate Network") +
-  theme(plot.caption = element_text(size = 9, color = "grey50")) +
-  theme_bw()
+  summarize(avgTMAX = mean(TMAX),
+            avgTMIN = mean(TMIN),
+            modeTMAX = Mode(TMAX)) %>%
+  ggplot(aes(x = Year, y = modeTMAX)) +
+  geom_point() +
+  geom_smooth(method = lm)
 ```
 
-Hourly data.
-```{r}
-dfH <- read.csv(file = "TLH_Hourly2009.csv", 
-                header = TRUE,
-                stringsAsFactors = FALSE)
-str(dfH)
-```
-
-Report type: https://www1.ncdc.noaa.gov/pub/data/ish/ish-format-document.pdf
-
-FM-12 = SYNOP Report of surface observation form a fixed land station
-FM-15 = METAR Aviation routine weather report
-FM-16 = SPECI Aviation selected special weather report
-
-Convert the date/time character string to a data/time obect.
-```{r}
-library(lubridate)
-
-dfH2 <- dfH %>%
-  mutate(DateTime = ymd_hms(DATE, tz = "EST"),
-         Date = as.Date(DateTime, tz = "EST"),
-         TempF = as.integer(HourlyDryBulbTemperature),
-         ReportType = REPORT_TYPE) %>%
-  select(ReportType, DateTime, Date, TempF) %>%
-  filter(Date %in% hotDates) %>%
-  filter(ReportType == 'FM-15')
-```
-
-Consecutive hours at or above 100F.
-```{r}
-hotTimes <- rle(dfH2$TempF >= 100)
-consecHours <- hotTimes$lengths[hotTimes$values]
-consecHours <- consecHours[!is.na(consecHours)]
-
-dfH2 <- dfH2 %>%
-  filter(TempF >= 100) %>%
-  mutate(dateNo = rep(1:length(consecHours), consecHours))
-```
-
-Join the daily data with the hourly data.
-```{r}
-df2 <- df %>%
-  select(Date, TMAX) %>%
-  filter(TMAX >= 100)
-
-dfH2 <- left_join(dfH2, df2)
-```
-
-Round the times to nearest hour.
-```{r}
-dfH2 <- dfH2 %>%
-  mutate(Hour =  hour(round(DateTime, "hours")))
-```
-
-### Compare with the standard model
+Upward trends in TMAX and TMIN. Most pronounced for TMAX.
 
 Compare with the number of 90F days. The upward trend starts at 95F. No changes in temps lower than that. This contrasts with the standard model where we expect upward trends in all temperatures above the average temperature.
 ```{r}
 TLH.df %>% 
 #  filter(Month >= 5 & Month <= 9) %>%
   group_by(Year) %>% 
-  summarize(n90 = sum(TMAX == 78)) %>% 
+  summarize(n90 = sum(TMAX == 84)) %>% 
 #  summarize(mT = mean(TMAX)) %>%
   ggplot(aes(Year, n90)) + 
   geom_point() +
   geom_smooth(method = lm)
 ```
 
-Start with a random distribution of high temps using a normal density.
+Temperature distributions by epoch for days defined by the hot day/night seasons.
 ```{r}
-TLH.df %>%
-  group_by(Year < 1980) %>%
-  summarize(avgHighT = mean(TMAX),
-            avgLowT = mean(TMIN),
-            medianHighT = median(TMAX),
-            medianLowT = median(TMIN),
-            sdHighT = sd(TMAX),
-            sdLowT = sd(TMIN))
+DayFreqByT <- TLH.df %>%
+  filter(doy >= 145 & doy <= 241) %>%
+  mutate(Epoch = Year < 1980,
+         When = "Hot Season Daytime Highs",
+         Temp = TMAX) %>%
+  dplyr::select(Temp, Epoch, When)
 
-Random.df <- data.frame(rT = c(round(rnorm(n = 1000000, mean = 79, sd = 12.1)),
-                               round(rnorm(n = 1000000, mean = 80.1, sd = 12.2))),
-                        Epoch = c(rep("1940-1979", each = 1000000),
-                                  rep("1980-2018", each = 1000000)))
+NightFreqByT <- TLH.df %>%
+  filter(doy >= 146 & doy <= 282) %>%  # Night
+  mutate(Epoch = Year <= 1980,
+         When = "Hot Season Nighttime Lows",
+         Temp = TMIN) %>%
+  dplyr::select(Temp, Epoch, When)
 
-FreqByRandomT <- Random.df %>%
-  group_by(Epoch, rT) %>%
-  summarize(nH = n()) %>%
-  group_by(Epoch) %>%
-  mutate(nDays = sum(nH),
-         perc = nH/nDays)
+FreqByT <- rbind(NightFreqByT, DayFreqByT)
 
-ggplot(FreqByRandomT[FreqByRandomT$rT >= 80 & FreqByRandomT$rT <= 105 , ], aes(x = rT, y = perc, color = Epoch)) +
-  geom_line(size = 1) +
-  scale_y_continuous(position = "right") +
-  scale_color_manual(labels = c("1940-1979", "1980-2018"), values = c("blue", "red")) +
-  ylab("") +  xlab("") +
-  theme_minimal() +
-  theme(panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank()) 
-```
-
-Repeat for actual temperatures.
-```{r}
-FreqByT <- TLH.df %>%
-  mutate(Epoch = Year <= 1980) %>%
-  group_by(Epoch, TMAX) %>%
-  summarize(nH = n()) %>%
-  group_by(Epoch) %>%
-  mutate(nDays = sum(nH),
-         perc = nH/nDays)
-
-ggplot(FreqByT[FreqByT$TMAX >= 80, ], aes(x = TMAX, y = perc, color = Epoch)) +
-#  geom_line() +
-  stat_smooth(method = "loess", formula = y ~ x, span = .34, size = 1, se = FALSE) +
-  scale_x_continuous(breaks = seq(80, 104, 2),
-                     labels = paste0(seq(80, 104, 2), "°")) +
-  scale_y_continuous(position = "right") +
+ggplot(FreqByT, aes(x = Temp, color = Epoch)) +
+  geom_density(bw = 1, size = 1) +
+  geom_hline(yintercept = 0, size = 1, col = "gray70") +
+  scale_x_continuous(breaks = seq(40, 105, 5)) +
   scale_color_manual(labels = c("1980-2018", "1940-1979"), values = c("red", "blue")) +
-  ylab("") +  xlab("") +
+  facet_wrap(~ When, nrow = 2) +
+  xlab("Temperature (° F)") +  ylab("Relative Frequency") +
+  labs(color = "") +
   theme_minimal() +
   theme(panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank()) 
+        legend.position = "top")
 ```
