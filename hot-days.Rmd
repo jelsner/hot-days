@@ -1205,6 +1205,7 @@ ggarrange(p1, p2, widths = c(6, 1))
 
 ### Stripes
 
+Code modified from:
 https://dominicroye.github.io/en/2018/how-to-create-warming-stripes-in-r/
 
 ```{r}
