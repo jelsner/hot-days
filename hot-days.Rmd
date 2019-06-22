@@ -220,6 +220,8 @@ TLH.df %>%
   summarize(nD = n(),
             N100 = sum(TMAX >= 100),
             N77 = sum(TMIN >= 77),
+            Q99Max = quantile(TMAX, probs = .99),
+            Q99Min = quantile(TMIN, probs = .99),
             qtle100 = 1 - N100/nD,
             qtle77 = 1 - N77/nD)
 
