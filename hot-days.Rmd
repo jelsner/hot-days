@@ -141,28 +141,42 @@ TLH.df$TMIN[TLH.df$Date == "2005-07-08"] <- 71
 TLH.df$TMIN[TLH.df$Date == "2002-10-08"] <- TLH.df$TMIN[TLH.df$Date == "2002-10-07"]
 ```
 
+To get an indication of how 'consistently' hot Tally is we compute the H-index Treacy, M. M. J., C. N. Ramirez, and M. O’Keeffe (2019), Hotness and coldness indexes based on the Fahrenheit scale, Eos, 100, https://doi.org/10.1029/2019EO127323. Published on 05 July 2019. And find that it is 91.
+
 H-index: If there are at least 90 days with temperatures at or above 90 then the H-index is 90.
 ```{r}
+H2 <- numeric()
 for(Y in 1940:2018){
 H <- numeric()
-for(Temp in 80:100){
+#for(Temp in 80:100){
+for(Temp in 57:77){
 h <- TLH.df %>% 
   filter(Year == Y) %>%
-  summarize(H = sum(TMAX >= Temp)) %>%
+#  summarize(H = sum(TMAX >= Temp)) %>%
+  summarize(H = sum(TMIN >= Temp)) %>%
   pull(H)
 H <- c(H, h)
 }
-H.df <- data.frame(Temp = 80:100, H) 
+#H.df <- data.frame(Temp = 80:100, H) 
+H.df <- data.frame(Temp = 57:77, H) 
 
-H.df %>%
+h2 <- H.df %>%
   mutate(diff = Temp - H < 0) %>%
   group_by(diff) %>%
   mutate(last = last(Temp)) %>%
   mutate(Hindex = nth(last, 1)) %>%
   pull(Hindex) %>%
-  first() %>%
-  print()
+  first()
+H2 <- c(H2, h2)
 }
+
+Hindex.df <- data.frame(Year = 1940:2018, H2)
+
+ggplot(Hindex.df, aes(x = Year, y = H2)) +
+  geom_smooth(method = lm, se = FALSE) +
+  geom_point() +
+  geom_line()
+
 ```
 
 When were the last hot days? Hottest days. Hot days since 2009. Note: At least two hot days in 2019.
