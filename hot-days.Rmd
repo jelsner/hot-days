@@ -7,7 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-## More hots: Upward trends in the occurrence of extremely hot days and nights in Tallahassee, Florida, USA
+## More hots: Upward trends in the occurrence of extremely hot days and nights in Tallahassee, Florida, USA  
 
 About the climate in Tallahassee.
 http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
