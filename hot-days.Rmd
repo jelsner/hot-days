@@ -21,6 +21,7 @@ Sites.df <- data.frame(Name = c("Regional Airport", "Downtown",
                                 "Dale Mabry Field", "Municipal Airport"), 
                        Latitude = c(30.39306, 30.43333, 30.44, 30.38),
                        Longitude = c(-84.35333, -84.28333, -84.338, -84.37))
+library(sf)
 ```
 
 ```{r, eval=FALSE}
@@ -60,7 +61,6 @@ mainMap <- p +
 
 Create a map with an inset showing Florida and Leon County.
 ```{r}
-library(sf)
 library(dplyr)
 
 library(tmap)
@@ -89,9 +89,9 @@ inset.tm <-
 
 library(grid)
 
-#mainMap
-#print(inset.tm, vp = viewport(.75, .25, width = .7, height = .4))
-inset.tm
+mainMap
+print(inset.tm, vp = viewport(.75, .25, width = .7, height = .4))
+#inset.tm
 ```
 ###Figure: Satellite image showing the locations of the sites where daily temperature records were taken in the city of Tallahassee. Inset: Leon County, Florida. The black square inside the county is the area of the background satellite image.
 
@@ -143,22 +143,22 @@ TLH.df$TMIN[TLH.df$Date == "2002-10-08"] <- TLH.df$TMIN[TLH.df$Date == "2002-10-
 
 To get an indication of how 'consistently' hot Tally is we compute the H-index Treacy, M. M. J., C. N. Ramirez, and M. O’Keeffe (2019), Hotness and coldness indexes based on the Fahrenheit scale, Eos, 100, https://doi.org/10.1029/2019EO127323. Published on 05 July 2019. And find that it is 91.
 
-H-index: If there are at least 90 days with temperatures at or above 90 then the H-index is 90.
+Tallahassee had an H-index of 91 in 2018: There were 91 days for which the maximum daily temperature was at least 91°F.
 ```{r}
 H2 <- numeric()
 for(Y in 1940:2018){
 H <- numeric()
-#for(Temp in 80:100){
-for(Temp in 57:77){
+for(Temp in 80:100){
+#for(Temp in 57:77){
 h <- TLH.df %>% 
   filter(Year == Y) %>%
-#  summarize(H = sum(TMAX >= Temp)) %>%
-  summarize(H = sum(TMIN >= Temp)) %>%
+  summarize(H = sum(TMAX >= Temp)) %>%
+#  summarize(H = sum(TMIN >= Temp)) %>%
   pull(H)
 H <- c(H, h)
 }
-#H.df <- data.frame(Temp = 80:100, H) 
-H.df <- data.frame(Temp = 57:77, H) 
+H.df <- data.frame(Temp = 80:100, H) 
+#H.df <- data.frame(Temp = 57:77, H) 
 
 h2 <- H.df %>%
   mutate(diff = Temp - H < 0) %>%
@@ -176,7 +176,6 @@ ggplot(Hindex.df, aes(x = Year, y = H2)) +
   geom_smooth(method = lm, se = FALSE) +
   geom_point() +
   geom_line()
-
 ```
 
 When were the last hot days? Hottest days. Hot days since 2009. Note: At least two hot days in 2019.
@@ -287,7 +286,6 @@ TLH.df %>%
   mutate(MonthName = month.name[Month]) %>%
   dplyr::select(MonthName, N100, N77) %>%
   xtable()
-  
 ```
 ###Table: Monthly counts.
 
