@@ -116,7 +116,7 @@ library(lubridate)
 TLH.df <- read.csv(file = 'TLH_SOD1892.csv',
                stringsAsFactors = FALSE,
                header = TRUE) %>%
-      filter(STATION == 'USW00093805') %>%
+#      filter(STATION == 'USW00093805') %>%
       mutate(Date = as.Date(DATE)) %>%
       mutate(Year = year(Date), 
              Month = month(Date), 
