@@ -7,6 +7,53 @@ editor_options:
   chunk_output_type: console
 ---
 
+## Hourly data
+
+Length of daylight.
+https://cran.r-project.org/web/packages/chillR/vignettes/hourly_temperatures.html
+```{r, eval=FALSE}
+library(chillR)
+daylength(latitude = 30.39306, JDay = 120)
+
+all_daylengths<-cbind(JDay = 1:365,
+                      sapply(daylength(latitude = 30.39306, JDay=1:365),cbind))
+#knitr::kable(head(all_daylengths))
+head(all_daylengths)
+```
+
+Tallahassee 
+72214093805
+
+Get the data.
+```{r}
+library(dplyr)
+library(lubridate)
+
+df <- read.csv(file = "https://www.ncei.noaa.gov/data/local-climatological-data/access/2019/72214093805.csv") %>%
+  dplyr::filter(REPORT_TYPE == "FM-15") %>%
+  mutate(Date = ymd_hms(DATE),
+         HourlyDryBulbTemperature = as.numeric(HourlyDryBulbTemperature),
+         HourlyPrecipitation = as.numeric(HourlyPrecipitation),
+         HourlyWindDirection = as.numeric(HourlyWindDirection)) %>%
+  dplyr::select(Date, starts_with("Hourly")) 
+```
+
+Summary of the day.
+```{r}
+df2 <- df %>%
+  dplyr::filter(HourlyDryBulbTemperature >= 100)
+
+df <- read.csv(file = "https://www.ncei.noaa.gov/data/local-climatological-data/access/2019/72214093805.csv") %>%
+  dplyr::filter(REPORT_TYPE == "SOD  ") %>%
+  mutate(Date = ymd_hms(DATE),
+         DailyMaximumDryBulbTemperature = as.numeric(DailyMaximumDryBulbTemperature)) %>%
+  dplyr::select(Date, starts_with("DailyMaximum"))
+
+df %>%
+  dplyr::filter(DailyMaximumDryBulbTemperature >= 100)
+```
+
+
 ## More hots: Upward trends in the occurrence of extremely hot days and nights in Tallahassee, Florida, USA  
 
 About the climate in Tallahassee.

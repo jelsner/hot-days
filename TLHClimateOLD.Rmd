@@ -1,0 +1,383 @@
+Tallahassee Climate Extremes: Hot Days
+======================================
+### Lede: The hots are getting hotter
+
+Introduction
+------------
+
+Here we look at the statistics of extremely hot daytime temperatures in Tallahassee, Florida. A record of daytime maximum temperatures from the airport reveals an increasing trend in the occurrence of 100$+^\circ$ F days since the 1960s. The trend results from an increase in the occurrence of hot events coupled with an increase in the average length of an event.  It is speculated that the trend is related to changes in the intensity and location of the subtropical high pressure system, perhaps exacerbated by changes in land use and global warming.
+
+### Data from stationaRy
+
+Not available
+```{r}
+devtools::install_github('rich-iannone/stationaRy')
+library("stationaRy")
+```
+
+### Data from websites.
+
+Hourly data:
+http://weatherspark.com/history/31772/2013/Tallahassee-Florida-United-States
+
+Daily data:
+http://www.ncdc.noaa.gov/cdo-web/datasets
+
+Read TLH data from NCDC.
+```{r}
+df1 = read.csv(file = "http://myweb.fsu.edu/jelsner/data/TLH_DailySummary2015.csv",
+               na.strings = "-9999", header=TRUE)
+df1$TmaxF = round(9/5 * df1$TMAX/10 + 32) 
+df1$TminF = round(9/5 * df1$TMIN/10 + 32)
+df1$Date = as.Date(as.character(df1$DATE), format="%Y%m%d")
+library("lubridate")
+df1$Year = year(df1$Date)
+df1$Month = month(df1$Date)
+df1 = subset(df1, Year < 2014)
+# from Weather Underground
+df1$TmaxF[df1$Date == "2005-07-08"] = 96
+df1$TminF[df1$Date == "2005-07-08"] = 71
+TLH.df = df1
+TLH2.df = data.frame(Date = TLH.df$Date,
+                     Year = TLH.df$Year, 
+                     Month = TLH.df$Month,
+                     Tmax = TLH.df$TmaxF, 
+                     Tmin = TLH.df$TminF)
+write.table(TLH2.df, file = "TLHT.txt")
+```
+
+From the NWSO TLH: For temperature and precipitation records, there are two sets of data.  The first two columns of data represent extremes recorded at the current observing site at the Tallahassee Regional Airport (previously the Tallahassee Municipal Airport).  Prior to March 29, 1961, observations were taken at other locations in Tallahassee and records for these locations are listed in the last two columns. Observations were taken at the Dale Mabry Field from this date back to March 1940.  Prior to that, observations were taken at various downtown locations beginning in April 1885. 
+
+July 8, 2005 had a missing high and low temperature. Values are obtained from Weather Underground.
+
+Convective vs non-convecting atmosphere? Compare with Las Vegas, NV.
+
+Read Las Vegas data from NCDC.
+```{r}
+df1 = read.csv(file = "http://myweb.fsu.edu/jelsner/data/LV_DailySummary.csv",
+               na.strings = "-9999", header=TRUE)
+df1$TmaxF = round(9/5 * df1$TMAX/10 + 32) 
+df1$TminF = round(9/5 * df1$TMIN/10 + 32)
+df1$Date = as.Date(as.character(df1$DATE), format="%Y%m%d")
+library("lubridate")
+df1$Year = year(df1$Date)
+df1$Month = month(df1$Date)
+df1 = subset(df1, Year < 2014)
+LVG.df = df1
+LVG2.df = data.frame(Date = LVG.df$Date,
+                     Year = LVG.df$Year, 
+                     Month = LVG.df$Month,
+                     Tmax = LVG.df$TmaxF, 
+                     Tmin = LVG.df$TminF)
+write.table(LVG2.df, file = "LVGT.txt")
+```
+
+Bar plot of the number days at or above 100F by year.
+```{r}
+library("dplyr")
+library("ggplot2")
+TLH.df = tbl_df(TLH.df)
+TLH.df2 = TLH.df %>% 
+  group_by(Year) %>%
+  summarize(N100 = sum(TmaxF >= 100, na.rm = TRUE),
+            N99 = sum(TmaxF >= 99, na.rm = TRUE),
+            avgTmaxF = mean(TmaxF, na.rm = TRUE))
+
+ggplot(TLH.df2, aes(x = Year, y = avgTmaxF)) +
+  theme_bw() +
+  geom_point(size = 3) +
+  geom_line() +
+  ylab("Average Annual Daily High Temperature\n in Tallahassee, FL (F)")
+
+ggplot(TLH.df2, aes(x = Year, y = N100, fill = N100)) + 
+  theme_bw() + 
+  geom_bar(stat='identity') + 
+  scale_fill_continuous(low='orange', high='red') +
+  geom_text(aes(label = N100), vjust = 1.5, size = 3) +
+  scale_x_continuous(breaks = seq(1950, 2013, 10)) +
+  ylab(expression(paste("Number of days in Tallahassee, FL at or above 100", {}^o, " F"))) +
+  xlab("") +
+  theme(axis.text.x  = element_text(size=11), legend.position="none")
+```
+
+Bar plot of the number of days at or above 100F by month.
+```{r}
+TLH.df %>%
+  group_by(Month) %>%
+  summarize(Number = sum(TmaxF >= 100, na.rm = TRUE)) %>%
+  mutate(MonthF = factor(month.abb[Month], levels = month.abb)) %>%
+  ggplot(., aes(x = MonthF, y = Number, fill = Number)) +
+  geom_bar(stat = 'identity') + 
+  scale_fill_continuous(low = 'orange', high = 'red') +
+  xlab("") + 
+  theme_bw() +
+  ylab(expression(paste("Number of days in Tallahassee, FL at or above 100", {}^o, " F"))) + 
+  theme(legend.position = "none") +
+  geom_text(aes(label = Number), vjust = 1.5, size = 3)
+```
+
+Histogram of daily high temperature.
+```{r}
+ggplot(TLH.df, aes(x = TmaxF)) + 
+  geom_histogram(binwidth=1, aes(fill = ..count..)) +
+  scale_fill_continuous(low = 'green', high = 'blue') +
+  theme_bw() +
+  ylab("Number of Days") + 
+  xlab(expression(paste("Daily High Temperature in Tallahassee, FL (", {}^o, " F)"))) +
+  theme(legend.position = "none")
+```
+
+Convective atmosphere vs sea breeze. Compare with Albany, GA
+
+Read Albany data from NCDC.
+```{r}
+df1 = read.csv(file = "http://myweb.fsu.edu/jelsner/data/ABN.csv",
+               na.strings = "-9999", header=TRUE)
+df1 = subset(df1, STATION_NAME == "ALBANY 3 SE GA US")
+df1$TmaxF = round(9/5 * df1$TMAX/10 + 32) 
+df1$TminF = round(9/5 * df1$TMIN/10 + 32)
+df1$Date = as.Date(as.character(df1$DATE), format="%Y%m%d")
+df1$Year = year(df1$Date)
+df1$Month = month(df1$Date)
+#df1 = subset(df1, Year < 2014)
+ABN.df = df1
+ABN2.df = data.frame(Date = ABN.df$Date,
+                     Year = ABN.df$Year, 
+                     Month = ABN.df$Month,
+                     Tmax = ABN.df$TmaxF, 
+                     Tmin = ABN.df$TminF)
+```
+
+```{r}
+L1 = nrow(TLH.df)
+L2 = nrow(ABN.df)
+L3 = nrow(LVG.df)
+TmaxF = c(TLH.df$TmaxF, ABN.df$TmaxF, LVG.df$TmaxF)
+Where = c(rep("Tallahassee, FL", L1), rep("Albany, GA", L2), rep("Las Vegas, NV", L3))
+combine.df = data.frame(TmaxF, Where)
+ggplot(data = combine.df, aes(x = TmaxF)) + 
+  geom_histogram(binwidth = 2, aes(fill = ..count..)) +
+  scale_fill_continuous(low = 'green', high = 'blue') +
+  theme_bw() +
+  ylab("Number of Days") + 
+  xlab(expression(paste("Daily High Temperature (", {}^o, " F)"))) +
+  theme(legend.position = "none") +
+  scale_x_continuous(breaks = seq(40, 120, 10)) +
+  facet_wrap(~ Where, nrow = 3, ncol = 1)
+```
+
+Calendar heat map. Code from Nathan Yau flowingdata.com
+```{r}
+cal <- function(dt) {
+    # Reads a date object and returns a tuple (weekrow, daycol)
+    # where weekrow starts at 1 and daycol starts at 1 for Sunday
+    #http://swingleydev.org/blog/tag/r/
+    year <- year(dt)
+    month <- month(dt)
+    day <- day(dt)
+    wday_first <- wday(ymd(paste(year, month, 1, sep = '-'), quiet = TRUE))
+    offset <- 7 + (wday_first - 2)
+    weekrow <- ((day + offset) %/% 7) - 1
+    daycol <- (day + offset) %% 7
+
+    c(weekrow, daycol)
+}
+weekrow <- function(dt) {
+    cal(dt)[1]
+}
+daycol <- function(dt) {
+    cal(dt)[2]
+}
+vweekrow <- function(dts) {
+    sapply(dts, weekrow)
+}
+vdaycol <- function(dts) {
+    sapply(dts, daycol)
+}
+```
+
+```{r}
+df4 = subset(TLH.df, Year >= 2006 & Month >= 5 & Month <= 8)
+df4$month = month(df4$Date, label = TRUE, abbr = FALSE)
+df4$weekrow = factor(vweekrow(df4$Date),
+   levels = c(5, 4, 3, 2, 1, 0),
+   labels = c('6', '5', '4', '3', '2', '1'))
+df4$daycol = factor(vdaycol(df4$Date),
+   labels = c('u', 'm', 't', 'w', 'r', 'f', 's'))
+#df4$TmaxF[df4$TmaxF >= 100] = NA
+df5 = subset(df4, TmaxF >= 100)
+```
+
+Plot calendar
+```{r fig.height=8}
+library(scales)
+library(grid)
+ggplot(data = df4, aes(x = daycol, y = weekrow, fill = TmaxF)) +
+    theme_bw() +
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "white"),
+          legend.position = "none",
+ #         legend.position = "bottom",
+ #         legend.key.width = unit(1, "in"),
+          legend.margin = unit(0, "in")) +
+    geom_tile(colour = "white") +
+#    facet_grid(~ month) +
+    facet_grid(Year ~ month) +
+    scale_fill_continuous(name = "Temperature (°F)", low = "blue", high = "red") +
+    geom_text(data = df4, aes(x = daycol, y = weekrow, label = TmaxF), 
+              vjust = .5, size = 4, color = "white") +
+    geom_text(data = df5, aes(x = daycol, y = weekrow, label = TmaxF), 
+              vjust = .5, size = 4, color = "black")
+#    ggtitle("Daily High Temperature")
+```
+
+```{r}
+dailyRecs = TLH.df %>% 
+  mutate(Day = day(Date)) %>%
+  group_by(Month, Day) %>%
+  summarize(dHmax = max(TmaxF, na.rm=TRUE),
+            dHmin = min(TmaxF, na.rm=TRUE),
+            dHmaxY = Year[which.max(TmaxF)],
+            dHminY = Year[which.min(TmaxF)])
+
+countHmax = dailyRecs %>%
+  group_by(dHmaxY) %>%
+  summarize(count = length(dHmaxY))
+
+countHmin = dailyRecs %>%
+  group_by(dHminY) %>%
+  summarize(count = length(dHminY))
+```
+
+Plot on 2014 calendar.
+```{r}
+tt = seq(as.Date("2014-01-01"), as.Date("2014-12-31"), by = "day")
+dailyRecs = dailyRecs[-60, ] # Remove leap day as 2014 is not a leap year
+dailyRecs$Date = tt
+dailyRecs$month = month(dailyRecs$Date, label = TRUE, abbr = FALSE)
+dailyRecs$weekrow = factor(vweekrow(dailyRecs$Date),
+   levels = c(5, 4, 3, 2, 1, 0),
+   labels = c('6', '5', '4', '3', '2', '1'))
+dailyRecs$daycol = factor(vdaycol(dailyRecs$Date),
+   labels = c('u', 'm', 't', 'w', 'r', 'f', 's'))
+```
+
+```{r fig.height=8}
+library(grid)
+ggplot(data = dailyRecs, aes(x = daycol, y = weekrow, fill = dHmax)) +
+    theme_bw() +
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "white"),
+ #         legend.position = "none",
+          legend.position = "bottom",
+          legend.key.width = unit(1, "in"),
+          legend.margin = unit(0, "in")) +
+    geom_tile(colour = "white") +
+    facet_wrap(~ month, nrow=4) +
+    scale_fill_continuous(name = "Temperature (°F)", 
+                          low="blue", high="red") +
+    geom_text(data=dailyRecs, aes(x = daycol, y = weekrow, label = dHmax), 
+              vjust = .5, size = 5, color="white") +
+    ggtitle("Tallahassee, Florida\nRecord Daily High Temperatures [1948-2013]\nData Source: NCDC")
+```
+
+Interesting that the most frequent temperature is such a high value. Atmospheric conditions that conspire to produce extremely warm days in Tallahassee are broad scale. This means that the high pressure ridge producing subsidence and keeping the air relatively dry spreads across several states often encompassing the entire southeast. The occurrence of a 100$+^\circ$F day is often followed by a better than average chance of another hot day as positive feedback occurs.
+
+Consecutive hot days tend to result in the hottest days. As a consequence of this clustering, it is necessary (statistically) to consider hot events rather than individual days. Here a hot event is defined as one or more days in which the temperature reaches at least 100F. A single event might consist of a single day or it may consist of several consecutive days.
+
+Determine hot events.
+```{r}
+hotEvents = rle(TLH.df$TmaxF >= 100)
+eventLength = hotEvents$lengths[hotEvents$values]
+eventNo = rep(1:length(eventLength), eventLength)
+Events.df = subset(TLH.df, TmaxF >= 100)
+Events.df$eventNo = eventNo
+```
+
+Determine the number of days between successive 100+F days. Add this as another column.
+```{r}
+t1 = Events.df$Date[-length(Events.df$Date)]
+t2 = Events.df$Date[-1]
+dd = difftime(t2, t1, units = "days")
+Events.df$dbe = c(NA, dd)
+Events.df = Events.df %>% 
+  select(TmaxF, TminF, Date, Year, Month, eventNo, dbe)
+```
+
+Length and intensity of events.
+```{r}
+LI.df = Events.df %>%
+  group_by(eventNo) %>%
+  summarize(eventLength = length(TmaxF),
+              avgEventT = mean(TmaxF),
+              maxEventT = max(TmaxF),
+              whenMaxEvT = which.max(TmaxF),
+              Year = Year[1])
+
+sum(LI.df$eventLength > 1)/length(LI.df$eventLength) # conditional probability of another 100+F day
+
+cor(LI.df$eventLength, LI.df$maxEventT)
+ggplot(LI.df, aes(x = eventLength, y = whenMaxEvT)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  xlab("Event Length (days)") +
+  ylab("Day of Event When Highest Temperature Occurs") +
+  scale_x_continuous(breaks = 1:7) +
+  theme_bw()
+```
+
+```{r}
+LI.df2 = LI.df %>%
+  group_by(Year) %>%
+  summarize(count = length(Year),
+            avgEL = mean(eventLength))
+
+ggplot(LI.df2, aes(x = Year, y = avgEL)) +
+  geom_point() +
+  ylab("Average Event Length (days)") +
+  theme_bw()
+
+AllYears = data.frame(Year = 1950:2013)
+LI.df3 = merge(AllYears, LI.df2, by = "Year", all.x = TRUE)
+LI.df3$count[is.na(LI.df3$count)] = 0
+
+suppressMessages(library(MASS))
+ggplot(LI.df3, aes(x = Year, y = count)) +
+    geom_bar(stat = "identity") +
+    ylab("Number of Hot Events in Tallahassee, FL") +
+    scale_x_continuous(breaks = seq(1950, 2013, 10)) +
+    stat_smooth(method = "glm.nb",
+              formula = y ~ x, 
+              data = LI.df3, se = TRUE) +
+    theme_bw() 
+```
+
+```{r}
+var(LI.df3$count)/mean(LI.df3$count)
+summary(glm.nb(count ~ Year, data = LI.df3))
+
+ggplot(LI.df, aes(x = Year, y = eventLength)) +
+  geom_point(alpha = .5, size = 3) +
+  scale_y_continuous(breaks = 1:8) +
+  scale_x_continuous(breaks = seq(1950, 2013, 10)) +
+  ylab("Length of Hot Event in Tallahassee, FL (days)") +
+#  geom_quantile(quantile = .95) +
+  theme_bw()
+```
+
