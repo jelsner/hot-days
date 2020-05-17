@@ -21,21 +21,51 @@ all_daylengths<-cbind(JDay = 1:365,
 head(all_daylengths)
 ```
 
-Tallahassee 
-72214093805
-
-Get the data.
+Get the data. Tallahassee station id: 72214093805
 ```{r}
 library(dplyr)
 library(lubridate)
 
-df <- read.csv(file = "https://www.ncei.noaa.gov/data/local-climatological-data/access/2019/72214093805.csv") %>%
+df <- NULL
+for(i in 2010:2019){
+  print(i)
+  X <- read.csv(file = paste0("https://www.ncei.noaa.gov/data/local-climatological-data/access/", i, "/72214093805.csv")) %>%
+    dplyr::select(DATE, REPORT_TYPE, starts_with("Hourly"))
+  df <- rbind(df, X)
+}
+
+df <- df %>%
   dplyr::filter(REPORT_TYPE == "FM-15") %>%
   mutate(Date = ymd_hms(DATE),
          HourlyDryBulbTemperature = as.numeric(HourlyDryBulbTemperature),
          HourlyPrecipitation = as.numeric(HourlyPrecipitation),
+         HourlyWindSpeed = as.numeric(HourlyWindSpeed),
          HourlyWindDirection = as.numeric(HourlyWindDirection)) %>%
   dplyr::select(Date, starts_with("Hourly")) 
+```
+
+Average wind speed by hour of day.
+```{r}
+library(ggplot2)
+
+DayHour.df <- df %>%
+  mutate(Hour = hour(Date),
+         Month = month(Date),
+         DayOfMonth = day(Date),
+         Doy = yday(Date)) %>%
+  group_by(Doy, Hour) %>%
+  summarize(AvgWindSpeed = mean(HourlyWindSpeed, na.rm = TRUE))
+
+
+ggplot(DayHour.df, aes(x = Doy, y = Hour, fill = AvgWindSpeed)) +
+          geom_raster() +
+          scale_fill_viridis_c(alpha = .6) 
+
+
+
+%>%
+ggplot(aes(x = Hour, y = AvgWindSpeed)) +
+  geom_point()
 ```
 
 Summary of the day.
