@@ -27,14 +27,15 @@ library(dplyr)
 library(lubridate)
 
 df <- NULL
-for(i in 2010:2019){
+
+for(i in 2000:2009){
   print(i)
   X <- read.csv(file = paste0("https://www.ncei.noaa.gov/data/local-climatological-data/access/", i, "/72214093805.csv")) %>%
     dplyr::select(DATE, REPORT_TYPE, starts_with("Hourly"))
   df <- rbind(df, X)
 }
 
-df <- df %>%
+df2 <- df %>%
   dplyr::filter(REPORT_TYPE == "FM-15") %>%
   mutate(Date = ymd_hms(DATE),
          HourlyDryBulbTemperature = as.numeric(HourlyDryBulbTemperature),
@@ -48,24 +49,26 @@ Average wind speed by hour of day.
 ```{r}
 library(ggplot2)
 
-DayHour.df <- df %>%
+DayHour.df <- df2 %>%
   mutate(Hour = hour(Date),
          Month = month(Date),
          DayOfMonth = day(Date),
          Doy = yday(Date)) %>%
   group_by(Doy, Hour) %>%
-  summarize(AvgWindSpeed = mean(HourlyWindSpeed, na.rm = TRUE))
+  summarize(AvgWindSpeed = median(HourlyWindSpeed, na.rm = TRUE) * .44704)
 
 
 ggplot(DayHour.df, aes(x = Doy, y = Hour, fill = AvgWindSpeed)) +
-          geom_raster() +
-          scale_fill_viridis_c(alpha = .6) 
-
-
-
-%>%
-ggplot(aes(x = Hour, y = AvgWindSpeed)) +
-  geom_point()
+  geom_raster() +
+  scale_fill_continuous(type = "viridis", alpha = .6, name = "") +
+  scale_y_reverse(breaks = seq(1, 23, 3), labels = c("1am", "4am", "7am", "10am", "1pm", "4pm", "7pm", "10pm")) +
+  scale_x_continuous(breaks = c(15,	46,	75,	106, 136, 167, 197, 228, 259, 289, 320, 350),
+                     labels = month.abb) +
+  xlab("") + ylab("") +
+  theme_minimal() +
+  labs(title = "Median Wind Speed (m/s)", 
+       subtitle = "Tallahassee, Florida (2000-2019)", 
+       caption = "Data Source: NOAA NCEI")
 ```
 
 Summary of the day.
